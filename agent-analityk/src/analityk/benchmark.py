@@ -199,6 +199,7 @@ def metryki_biura(baza, biuro_id: int | None, typ_okresu: str,
     wynik_punktowy = punkty_zespolu(baza, zespol, typ_okresu, klucz_okresu, od, do)
     m["punkty"] = wynik_punktowy
     m["punkty_razem"] = wynik_punktowy["punkty_razem"]
+    m["liczniki_operacyjne"] = wynik_punktowy.get("liczniki_operacyjne", {})
     m["liczba_pracownikow"] = len(zespol)
     m["liczba_pracujacych"] = len({a.pracownik for a in aktywnosci})
     m["role"] = {

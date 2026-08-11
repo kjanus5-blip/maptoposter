@@ -60,6 +60,8 @@
             <th class="liczba">Stawka</th><th class="liczba">Punkty</th></tr>
       </thead>
       <tbody>
+      {% set kody = m.punkty.pozycje|map(attribute='kod')|list %}
+      {% set kotwica = 'IM3' if 'IM3' in kody else kody|last %}
       {% for poz in m.punkty.pozycje %}
         <tr>
           <td><code>{{ poz.kod }}</code></td>
@@ -68,6 +70,17 @@
           <td class="liczba">{{ poz.stawka }}</td>
           <td class="liczba"><strong>{{ poz.punkty|round(0)|int }}</strong></td>
         </tr>
+        {% if poz.kod == kotwica %}
+          {% for kod, dane in (m.liczniki_operacyjne or {}).items() %}
+            <tr class="nie-punktowana">
+              <td><code>{{ kod }}</code></td>
+              <td>{{ dane.nazwa }}</td>
+              <td class="liczba">{{ dane.ile|round(0)|int }}</td>
+              <td class="liczba">—</td>
+              <td class="liczba"><span class="notatka">nie punktowane</span></td>
+            </tr>
+          {% endfor %}
+        {% endif %}
       {% endfor %}
       </tbody>
     </table>

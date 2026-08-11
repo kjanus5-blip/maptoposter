@@ -141,6 +141,12 @@ class TestLiczenieZAktywnosci(unittest.TestCase):
         self.assertEqual(licznosci_z_aktywnosci(aktywnosci)["TEL_WYKONANE"], 3)
         self.assertNotIn("R4", licznosci_z_aktywnosci(aktywnosci))
 
+    def test_liczniki_operacyjne_sa_zbierane_dla_biura(self):
+        """Biuro też musi widzieć telefony — inaczej znikają przy agregacji."""
+        aktywnosci = [akt("a", "Tel ogólny", "telefon", g) for g in range(9, 12)]
+        licznosci = licznosci_z_aktywnosci(aktywnosci)
+        self.assertEqual(licznosci["TEL_WYKONANE"], 3)
+
     def test_brak_ricerki_to_brak_wpisu_a_nie_zero(self):
         licznosci = licznosci_z_aktywnosci([akt("a", "Tel ogólny", "telefon")])
         self.assertNotIn("IM3", licznosci)
@@ -189,6 +195,19 @@ class TestIntegracjaZBaza(unittest.TestCase):
         self.assertIn("RS1", kody)
         self.assertIn("R4", kody)
         self.assertEqual(wynik["punkty_za_aktywnosc"], 2000 + 20)
+
+    def test_telefony_widoczne_w_klasyfikacji_biura(self):
+        biuro_id = self.baza.zapisz_biuro(Biuro(nazwa="Centrum"))
+        p = Pracownik(klucz="a", imie_nazwisko="A", biuro_id=biuro_id, rola=ROLA_AGENT)
+        self.baza.zapisz_pracownika(p)
+        self.baza.zapisz_aktywnosci(
+            [akt("a", "RICERCA", godzina=g) for g in range(9, 12)]
+            + [akt("a", "Tel ogólny", "telefon", g) for g in range(13, 16)]
+        )
+        wynik = punkty_zespolu(self.baza, [p], "dzien", "2026-08-10",
+                               "2026-08-10", "2026-08-10")
+        self.assertEqual(wynik["liczniki_operacyjne"]["TEL_WYKONANE"]["ile"], 3)
+        self.assertEqual(wynik["punkty_za_aktywnosc"], 3 * 4)   # telefony bez punktów
 
     def test_bonus_zespolowy_jest_oznaczony_do_potwierdzenia(self):
         wynik = punkty_biura({}, liczba_osob=3)

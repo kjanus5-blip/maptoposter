@@ -6,6 +6,13 @@
 
 {% include "_naglowek_pracownika.html" %}
 
+<div class="pasek-akcji">
+  <a class="przycisk" href="{{ url_for('raport_html', klucz=p.klucz) }}{{ mk.q(okres) }}"
+     target="_blank" rel="noopener">Raport — druk / PDF</a>
+  <a class="przycisk wtorny" href="{{ url_for('raport_md', klucz=p.klucz) }}{{ mk.q(okres) }}">Pobierz .md</a>
+  <span class="notatka">Raport otworzy się w nowej karcie z przyciskiem zapisu do PDF.</span>
+</div>
+
 {% if m.pusty %}
   <div class="karta"><p class="pusto">Brak aktywności w tym okresie.</p></div>
 {% else %}
@@ -54,6 +61,11 @@
             <th class="liczba">Stawka</th><th class="liczba">Punkty</th><th>Źródło</th></tr>
       </thead>
       <tbody>
+      {% set kody_punktowane = m.punkty.pozycje|map(attribute='kod')|list %}
+      {# Telefony i inne liczniki bez punktów pokazujemy przy IM3, bo to razem
+         opisuje objętość dnia: ile z ricerki, ile z telefonu. Gdy rola nie ma
+         IM3, lądują na końcu tabeli, żeby nigdzie nie zniknęły. #}
+      {% set kotwica = 'IM3' if 'IM3' in kody_punktowane else kody_punktowane|last %}
       {% for poz in m.punkty.pozycje %}
         <tr>
           <td><code>{{ poz.kod }}</code></td>
@@ -67,22 +79,22 @@
             {% else %}<span class="odznaka srednia">do wpisania</span>{% endif %}
           </td>
         </tr>
+        {% if poz.kod == kotwica %}
+          {% for kod, dane in (m.liczniki_operacyjne or {}).items() %}
+            <tr class="nie-punktowana">
+              <td><code>{{ kod }}</code></td>
+              <td>{{ dane.nazwa }}</td>
+              <td class="liczba">{{ dane.ile|round(0)|int }}</td>
+              <td class="liczba">—</td>
+              <td class="liczba"><span class="notatka">nie punktowane</span></td>
+              <td><span class="odznaka dobra">z eksportu</span></td>
+            </tr>
+          {% endfor %}
+        {% endif %}
       {% endfor %}
       </tbody>
     </table>
   </div>
-
-  {% if m.liczniki_operacyjne %}
-    <h3>Liczone, ale nie punktowane</h3>
-    <div class="udzialy">
-      {% for kod, dane in m.liczniki_operacyjne.items() %}
-        <div class="udzial-wiersz" style="grid-template-columns: 1fr auto">
-          <span class="udzial-etykieta">{{ dane.nazwa }}</span>
-          <span class="udzial-liczba"><strong>{{ dane.ile|round(0)|int }}</strong></span>
-        </div>
-      {% endfor %}
-    </div>
-  {% endif %}
 
   <h3>Bonusy</h3>
   <div class="przewijane">
@@ -273,9 +285,7 @@
     <input type="hidden" name="okres" value="{{ okres.typ }}">
     <input type="hidden" name="klucz" value="{{ okres.klucz }}">
     <button type="submit">{{ 'Wygeneruj ponownie' if ocena else 'Wygeneruj ocenę AI' }}</button>
-    <a class="przycisk" href="{{ url_for('raport_html', klucz=p.klucz) }}{{ mk.q(okres) }}"
-       target="_blank" rel="noopener">Raport do druku / PDF</a>
-    <a class="przycisk wtorny" href="{{ url_for('raport_md', klucz=p.klucz) }}{{ mk.q(okres) }}">Pobierz .md</a>
+    <span class="notatka">Ocena wejdzie do raportu po wygenerowaniu.</span>
   </form>
 </div>
 

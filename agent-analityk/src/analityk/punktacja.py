@@ -457,4 +457,9 @@ def punkty_zespolu(baza, zespol, typ_okresu: str, klucz_okresu: str,
         )
         for kod, wartosc in licznosci.items():
             razem[kod] = razem.get(kod, 0) + wartosc
-    return punkty_biura(razem, liczba_osob=len(zespol))
+    wynik = punkty_biura(razem, liczba_osob=len(zespol))
+    wynik["liczniki_operacyjne"] = {
+        w.kod: {"nazwa": w.nazwa, "ile": razem.get(w.kod, 0)}
+        for w in LICZNIKI_OPERACYJNE if razem.get(w.kod)
+    }
+    return wynik

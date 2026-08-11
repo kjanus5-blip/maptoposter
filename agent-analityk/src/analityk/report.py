@@ -226,7 +226,8 @@ def zbuduj_raport(
 
     # --- punktacja ---
     if m.get("punkty"):
-        czesci.append(sekcja("Klasyfikacja punktowa", _sekcja_punktow(m["punkty"])))
+        czesci.append(sekcja("Klasyfikacja punktowa",
+                             _sekcja_punktow(m["punkty"], m.get("liczniki_operacyjne"))))
 
     # --- na tle grupy ---
     if grupy:
@@ -284,13 +285,24 @@ def zbuduj_raport(
     return "\n\n".join(czesci) + "\n"
 
 
-def _sekcja_punktow(punkty: dict) -> str:
-    """Rozbicie punktów z oficjalnej klasyfikacji sieci."""
+def _sekcja_punktow(punkty: dict, liczniki: dict | None = None) -> str:
+    """Rozbicie punktów z oficjalnej klasyfikacji sieci.
+
+    `liczniki` to pozycje liczone, ale nieprzynoszące punktów (telefony,
+    oferty, spotkania CONT). Wchodzą do tabeli zaraz za ricerką, bo razem
+    opisują objętość dnia.
+    """
     wiersze = [
         [p["kod"], p["nazwa"], "—" if p["brak_danych"] else int(p["ile"]),
          p["stawka"], int(p["punkty"])]
         for p in punkty["pozycje"]
     ]
+    if liczniki:
+        kody = [w[0] for w in wiersze]
+        gdzie = kody.index("IM3") + 1 if "IM3" in kody else len(wiersze)
+        for kod, dane in reversed(list(liczniki.items())):
+            wiersze.insert(gdzie, [kod, dane["nazwa"], int(dane["ile"]), "—",
+                                   "nie punktowane"])
     bloki = [
         (f"**Razem: {punkty['punkty_razem']:,.0f} pkt** "
          f"(aktywność {punkty['punkty_za_aktywnosc']:,.0f} "

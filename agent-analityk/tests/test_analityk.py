@@ -214,9 +214,18 @@ class TestRaporty(unittest.TestCase):
         html = zbuduj_raport_html(p, "dzien", "2026-08-10", m, akt)
         self.assertTrue(html.startswith("<!doctype html>"))
         self.assertIn("<style>", html)
-        self.assertNotIn("<script", html)
+        self.assertNotIn("<script", html)      # jedyny JS to onclick druku
         self.assertNotIn("http://", html)
         self.assertNotIn("https://", html)
+
+    def test_html_ma_przycisk_zapisu_do_pdf(self):
+        """Bez niego zapis do PDF wymaga szukania w menu przeglądarki."""
+        from analityk.raport_html import zbuduj_raport_html
+        p, m, akt = self._dane()
+        html = zbuduj_raport_html(p, "dzien", "2026-08-10", m, akt)
+        self.assertIn("window.print()", html)
+        # pasek nie może wyjść na wydruku, bo trafiłby do PDF-a
+        self.assertIn(".pasek-druku { display: none; }", html)
 
     def test_html_escapuje_notatki(self):
         """Notatka z CRM to tekst od użytkownika — nie może wstrzyknąć HTML-a."""

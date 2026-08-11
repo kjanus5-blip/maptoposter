@@ -302,3 +302,11 @@ button.groźny { background: transparent; border-color: var(--slaby); color: var
 }
 .zakladki-strony a:hover { color: var(--akcent); text-decoration: none; }
 .zakladki-strony a.aktywna { background: var(--akcent); border-color: var(--akcent); color: #fff; }
+
+/* --- pasek akcji pod nagłówkiem strony --- */
+.pasek-akcji { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 18px; }
+
+/* Wiersz licznika bez punktów w tabeli punktacji — ma być czytelnie inny,
+   żeby nikt nie policzył go do wyniku. */
+tr.nie-punktowana td { background: var(--tlo); }
+tr.nie-punktowana code { opacity: .75; }

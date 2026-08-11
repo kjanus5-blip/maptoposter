@@ -129,7 +129,18 @@ li { margin-bottom: 3px; }
 .udzial-etykieta { color: var(--slaby); }
 .pusto { color: var(--slaby); }
 
+.pasek-druku { display: flex; gap: 12px; align-items: center; margin-bottom: 16px;
+               padding: 10px 14px; border: 1px solid var(--ramka); border-radius: 10px;
+               background: var(--akcent-tlo); }
+.pasek-druku button {
+  border: 1px solid var(--akcent); background: var(--akcent); color: #fff;
+  padding: 8px 15px; border-radius: 8px; font: inherit; font-size: 14px;
+  font-weight: 500; cursor: pointer;
+}
+.pasek-druku .podpowiedz { font-size: 12.5px; color: var(--slaby); }
+
 @media print {
+  .pasek-druku { display: none; }
   body { padding: 0; max-width: none; font-size: 12px; }
   h2 { margin-top: 20px; }
   .blok, .kafel, table, .szapka { break-inside: avoid; }
@@ -137,6 +148,18 @@ li { margin-bottom: 3px; }
 }
 @page { margin: 14mm; }
 """
+
+
+#: Jedyny skrypt w całym raporcie. Reguła „zero JavaScriptu” dotyczy treści —
+#: tu chodzi o wywołanie okna druku, bez którego zapis do PDF wymaga szukania
+#: w menu przeglądarki. Pasek znika na wydruku, więc w PDF-ie go nie ma.
+PASEK_DRUKU = (
+    '<div class="pasek-druku">'
+    '<button type="button" onclick="window.print()">Zapisz jako PDF / drukuj</button>'
+    '<span class="podpowiedz">W oknie druku wybierz <strong>Miejsce docelowe → '
+    'Zapisz jako PDF</strong> (macOS: <strong>PDF → Zapisz jako PDF</strong>).</span>'
+    "</div>"
+)
 
 
 def _e(x) -> str:
@@ -232,7 +255,7 @@ def zbuduj_raport_html(
               _sekcja_jakosci(m), _sekcja_wynikow(m)]
 
     if m.get("punkty"):
-        czesci.append(_sekcja_punktow(m["punkty"]))
+        czesci.append(_sekcja_punktow(m["punkty"], m.get("liczniki_operacyjne")))
     if grupy:
         czesci.append(_sekcja_grup(grupy))
     if m_poprzedni and not m_poprzedni.get("pusty"):
@@ -260,7 +283,7 @@ def _strona(tytul: str, tresc: str) -> str:
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"<title>{_e(tytul)}</title>\n<style>{STYL}</style>\n</head>\n<body>\n"
-        f"{tresc}\n{stopka}\n</body>\n</html>\n"
+        f"{PASEK_DRUKU}\n{tresc}\n{stopka}\n</body>\n</html>\n"
     )
 
 
@@ -354,12 +377,20 @@ def _sekcja_wynikow(m: dict) -> str:
     return blok
 
 
-def _sekcja_punktow(punkty: dict) -> str:
+def _sekcja_punktow(punkty: dict, liczniki: dict | None = None) -> str:
     wiersze = [
         [p["kod"], p["nazwa"], "—" if p["brak_danych"] else int(p["ile"]),
          p["stawka"], f"{int(p['punkty']):,}".replace(",", " ")]
         for p in punkty["pozycje"]
     ]
+    # Telefony i inne liczniki bez punktów stawiamy zaraz za ricerką: razem
+    # opisują objętość dnia, choć tylko jedno z nich wchodzi do klasyfikacji.
+    if liczniki:
+        kody = [w[0] for w in wiersze]
+        gdzie = kody.index("IM3") + 1 if "IM3" in kody else len(wiersze)
+        for kod, dane in reversed(list(liczniki.items())):
+            wiersze.insert(gdzie, [kod, dane["nazwa"], int(dane["ile"]), "—",
+                                   _html('<span class="notka">nie punktowane</span>')])
     razem = f"{punkty['punkty_razem']:,.0f}".replace(",", " ")
     aktywnosc = f"{punkty['punkty_za_aktywnosc']:,.0f}".replace(",", " ")
     bonusy = f"{punkty['punkty_bonusowe']:,.0f}".replace(",", " ")
