@@ -123,6 +123,14 @@
     </table>
   </div>
 
+  <form method="post" action="{{ url_for('przywroc_domyslne_mapowanie') }}"
+        style="margin:14px 0"
+        onsubmit="return confirm('Przywrócić reguły domyślne z najnowszej wersji programu? Twoje własne reguły zostaną nietknięte.')">
+    <button type="submit" class="wtorny">Przywróć reguły domyślne</button>
+    <span class="notatka">po aktualizacji programu — wciąga nowe reguły z kodu,
+      Twoich własnych nie rusza</span>
+  </form>
+
   <h3>Dodaj własną regułę</h3>
   <form method="post" action="{{ url_for('zapisz_mapowanie') }}">
     <div class="pola">

@@ -302,6 +302,25 @@ class TestPanelWWW(unittest.TestCase):
         self.assertIn("okres=tydzien", odp.headers["Location"])
         self.assertIn("klucz=2026-W33", odp.headers["Location"])
 
+    def test_przywrocenie_regul_domyslnych(self):
+        """Po aktualizacji programu reguły w bazie trzeba odświeżyć ręcznie —
+        stare domyślne znikają, własne zostają."""
+        from analityk.store import Baza as B
+        baza = B(self.app.config["SCIEZKA_BAZY"])
+        baza.ustaw_mapowanie("stara regula", "R4", zrodlo="domyslne")
+        baza.ustaw_mapowanie("moja regula", "NO10", zrodlo="reczne")
+        baza.zamknij()
+
+        odp = self.c.post("/typy/przywroc", follow_redirects=True)
+        self.assertEqual(odp.status_code, 200)
+
+        baza = B(self.app.config["SCIEZKA_BAZY"])
+        mapowanie = baza.mapowanie_typow()
+        baza.zamknij()
+        self.assertNotIn("stara regula", mapowanie)          # stare domyślne usunięte
+        self.assertEqual(mapowanie["moja regula"]["kod"], "NO10")   # własna nietknięta
+        self.assertIn("ricerca", mapowanie)                   # nowe domyślne wgrane
+
     def test_pusta_baza(self):
         with tempfile.TemporaryDirectory() as pusty:
             from analityk.web import stworz_aplikacje

@@ -83,6 +83,20 @@ Dalej klikaj:
 
 Panel słucha tylko na `127.0.0.1` — nie jest wystawiony do sieci.
 
+## Aktualizacja
+
+```bash
+cd ~/maptoposter/agent-analityk
+git pull
+```
+
+Twoje dane są bezpieczne — baza, raporty i profile są poza repozytorium, więc
+`git pull` ich nie dotyka. Po aktualizacji uruchom panel ponownie.
+
+**Jeden krok ręczny:** reguły w zakładce *Typy aktywności* siedzą w bazie, więc
+nowe reguły z aktualizacji same do niej nie trafią. Wejdź na ten ekran i kliknij
+**„Przywróć reguły domyślne”** — wciągnie nowe, a Twoich własnych nie ruszy.
+
 ## To samo z wiersza poleceń
 
 ```bash

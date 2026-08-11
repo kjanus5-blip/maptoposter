@@ -432,10 +432,7 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
         b = baza()
         zapisane = b.mapowanie_typow()
         if not zapisane:                       # pierwsze wejście: zasiej domyślne
-            for wzorzec, kanal, warunek, kod, opis in MAPOWANIE_DOMYSLNE:
-                klucz = "|".join(x for x in (wzorzec, warunek, kanal) if x) or wzorzec
-                b.ustaw_mapowanie(klucz, kod, opis, zrodlo="domyslne",
-                                  warunek=warunek, kanal=kanal)
+            _zasiej_domyslne(b)
             zapisane = b.mapowanie_typow()
 
         typy = b.wystepujace_typy()
@@ -463,6 +460,26 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
             kanaly=sorted({t["kanal"] for t in typy if t["kanal"]}),
             nieprzypisanych=len(braki),
         )
+
+    @app.post("/typy/przywroc")
+    def przywroc_domyslne_mapowanie():
+        """Nadpisuje reguły domyślne aktualnymi z kodu, zostawiając Twoje własne.
+
+        Potrzebne po aktualizacji programu: reguły siedzą w bazie, więc nowe
+        wartości z kodu same by do niej nie trafiły.
+        """
+        b = baza()
+        wlasne = {w for w, d in b.mapowanie_typow().items() if d["zrodlo"] != "domyslne"}
+        for wzorzec, dane in b.mapowanie_typow().items():
+            if dane["zrodlo"] == "domyslne":
+                b.ustaw_mapowanie(wzorzec, "")          # skasuj stare domyślne
+        ile = _zasiej_domyslne(b)
+        flash(
+            f"Przywrócono {ile} reguł domyślnych."
+            + (f" Twoje własne reguły ({len(wlasne)}) zostały nietknięte." if wlasne else ""),
+            "ok",
+        )
+        return redirect(url_for("widok_typow"))
 
     @app.post("/typy/zapisz")
     def zapisz_mapowanie():
@@ -636,6 +653,14 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
 
 
 # --- pomocnicze -----------------------------------------------------------
+
+def _zasiej_domyslne(b: Baza) -> int:
+    """Wgrywa do bazy komplet reguł domyślnych z `punktacja.MAPOWANIE_DOMYSLNE`."""
+    for wzorzec, kanal, warunek, kod, opis in MAPOWANIE_DOMYSLNE:
+        klucz = "|".join(x for x in (wzorzec, warunek, kanal) if x) or wzorzec
+        b.ustaw_mapowanie(klucz, kod, opis, zrodlo="domyslne",
+                          warunek=warunek, kanal=kanal)
+    return len(MAPOWANIE_DOMYSLNE)
 
 def _powrot(domyslny: str) -> str:
     """Wraca na tę samą zakładkę okresu, z której przyszło żądanie."""
