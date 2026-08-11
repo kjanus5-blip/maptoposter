@@ -93,6 +93,37 @@ def poprzedni_okres(klucz: str, typ: str) -> str:
     return klucz_okresu(dzien_przed, typ)
 
 
+def nastepny_okres(klucz: str, typ: str) -> str:
+    _, do = zakres_okresu(klucz, typ)
+    dzien_po = date.fromisoformat(do) + timedelta(days=1)
+    return klucz_okresu(dzien_po, typ)
+
+
+DNI_TYGODNIA = ("poniedziałek", "wtorek", "środa", "czwartek", "piątek",
+                "sobota", "niedziela")
+MIESIACE = ("styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec", "lipiec",
+            "sierpień", "wrzesień", "październik", "listopad", "grudzień")
+RZYMSKIE = {1: "I", 2: "II", 3: "III", 4: "IV"}
+
+
+def etykieta_okresu(klucz: str, typ: str) -> str:
+    """Czytelny opis okresu do wyświetlenia w panelu."""
+    if typ == "dzien":
+        d = date.fromisoformat(klucz)
+        return f"{DNI_TYGODNIA[d.weekday()]}, {d.strftime('%d.%m.%Y')}"
+    if typ == "tydzien":
+        od, do = zakres_okresu(klucz, typ)
+        o, d = date.fromisoformat(od), date.fromisoformat(do)
+        return f"tydzień {klucz.split('W')[1]}: {o.strftime('%d.%m')}–{d.strftime('%d.%m.%Y')}"
+    if typ == "miesiac":
+        rok, mies = int(klucz[:4]), int(klucz[5:7])
+        return f"{MIESIACE[mies - 1]} {rok}"
+    if typ == "kwartal":
+        rok, kw = int(klucz[:4]), int(klucz.split("Q")[1])
+        return f"{RZYMSKIE[kw]} kwartał {rok}"
+    return f"rok {klucz}"
+
+
 # --- metryki --------------------------------------------------------------
 
 def _procent(licznik: int, mianownik: int) -> float:
@@ -273,8 +304,13 @@ def porownaj(biezacy: dict, poprzedni: dict, pola: list[str] | None = None) -> d
     return out
 
 
-def ranking_zespolu(per_pracownik: dict[str, dict], pole: str = "indeks_jakosci") -> list[tuple]:
-    """Sortowanie pracowników po wybranej metryce (malejąco)."""
+def ranking_zespolu(per_pracownik: dict[str, dict], pole: str = "punkty_razem") -> list[tuple]:
+    """Sortowanie pracowników po wybranej metryce (malejąco).
+
+    Domyślnie po punktach z oficjalnej klasyfikacji sieci — to jest ranking,
+    który ludzie znają. `indeks_jakosci` zostaje jako miara jakości pracy
+    (ilość + jakość kontaktu), niezależna od tego, ile kto zamknął transakcji.
+    """
     pozycje = [
         (klucz, m.get(pole) or 0, m.get("liczba_aktywnosci", 0))
         for klucz, m in per_pracownik.items()

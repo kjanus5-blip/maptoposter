@@ -17,7 +17,7 @@ from .models import (
     WYNIK_LEAD,
     WYNIK_SYGNAL,
 )
-from .profiles import Profil
+from .org import Pracownik
 
 NAZWY_OKRESOW = {
     "dzien": "dzienny", "tydzien": "tygodniowy", "miesiac": "miesięczny",
@@ -101,7 +101,7 @@ def heurystyczna_ocena(m: dict) -> tuple[list[str], list[str], list[str]]:
 
 
 def zbuduj_raport(
-    profil: Profil,
+    profil: Pracownik,
     typ_okresu: str,
     klucz_okresu_: str,
     m: dict,
@@ -109,10 +109,13 @@ def zbuduj_raport(
     m_poprzedni: dict | None = None,
     ocena_llm: dict | None = None,
     pamiec: list[dict] | None = None,
+    grupy: list[dict] | None = None,
 ) -> str:
     """Składa pełny raport Markdown."""
     naglowek = (
         f"# Raport {NAZWY_OKRESOW[typ_okresu]} — {profil.imie_nazwisko}\n\n"
+        f"**Stanowisko:** {profil.nazwa_roli}  \n"
+        f"**Biuro:** {profil.biuro_nazwa or 'nieprzypisane'}  \n"
         f"**Okres:** {klucz_okresu_}  \n"
         f"**Rekordów w CRM:** {m.get('liczba_aktywnosci', 0)}\n"
     )
@@ -193,6 +196,14 @@ def zbuduj_raport(
         czesci.append("## 6. Trend względem poprzedniego okresu\n\n"
                       + _tabela(["Wskaźnik", "Teraz", "Poprzednio", "Zmiana"], wiersze))
 
+    # --- 5b. Klasyfikacja punktowa ---
+    if m.get("punkty"):
+        czesci.append(_sekcja_punktow(m["punkty"]))
+
+    # --- 6b. Na tle innych ---
+    if grupy:
+        czesci.append(_sekcja_porownania(grupy))
+
     # --- 7. Alerty ---
     ostrzezenia = alerty(m, m_poprzedni)
     if ostrzezenia:
@@ -239,6 +250,59 @@ def zbuduj_raport(
     return "\n\n".join(czesci) + "\n"
 
 
+def _sekcja_punktow(punkty: dict) -> str:
+    """Rozbicie punktów z oficjalnej klasyfikacji sieci."""
+    wiersze = [
+        [p["kod"], p["nazwa"], "—" if p["brak_danych"] else int(p["ile"]),
+         p["stawka"], int(p["punkty"])]
+        for p in punkty["pozycje"]
+    ]
+    bloki = [
+        "## 5b. Klasyfikacja punktowa\n\n"
+        f"**Razem: {punkty['punkty_razem']:,.0f} pkt** "
+        f"(aktywność {punkty['punkty_za_aktywnosc']:,.0f} + bonusy {punkty['punkty_bonusowe']:,.0f})"
+        .replace(",", " "),
+        _tabela(["Kod", "Wskaźnik", "Ile", "Stawka", "Punkty"], wiersze),
+    ]
+    if punkty["kompletnosc_proc"] < 100:
+        bloki.append(
+            f"> Uzupełnionych wskaźników: {punkty['kompletnosc_proc']}%. "
+            f"Brakuje: {', '.join(punkty['wskazniki_bez_danych'])}. "
+            "Brakujące liczą się jako zero, więc wynik jest zaniżony."
+        )
+    wiersze_bonusow = [
+        [b["nazwa"],
+         "brak danych" if b.get("brak_danych") else
+         (f"{b['udzial_proc']}%" if b["udzial_proc"] is not None else "—"),
+         f">{b['prog_proc']}%" if b.get("prog_proc") else "—",
+         b["punkty"]]
+        for b in punkty["bonusy"]
+    ]
+    bloki.append(_tabela(["Bonus", "Wynik", "Próg", "Punkty"], wiersze_bonusow))
+    return "\n\n".join(bloki)
+
+
+def _sekcja_porownania(grupy: list[dict]) -> str:
+    bloki = ["## 6b. Na tle innych osób na tym samym stanowisku"]
+    for g in grupy:
+        tytul = f"**{g['nazwa']}** — osób w grupie: {g['liczebnosc']}"
+        if not g["wiarygodne"]:
+            tytul += "  \n> ⚠️ Grupa za mała na wnioski — traktuj poglądowo."
+        bloki.append(tytul)
+        wiersze = [
+            [d["etykieta"], d["moja"], d["mediana_grupy"],
+             f"{'+' if d['delta'] > 0 else ''}{d['delta']}",
+             f"{d['percentyl']}." if d["percentyl"] is not None else "—",
+             d["ocena"]]
+            for d in g["pola"].values()
+        ]
+        bloki.append(_tabela(
+            ["Wskaźnik", "Ta osoba", "Mediana grupy", "Różnica", "Percentyl", "Ocena"],
+            wiersze,
+        ))
+    return "\n\n".join(bloki)
+
+
 def _sekcja_oceny_llm(ocena: dict) -> str:
     def lista(klucz: str) -> str:
         return "\n".join(f"- {x}" for x in ocena.get(klucz, [])) or "- (brak)"
@@ -250,6 +314,9 @@ def _sekcja_oceny_llm(ocena: dict) -> str:
     return (
         "## 8. Ocena AI\n\n"
         f"**Podsumowanie:** {ocena.get('podsumowanie', '')}\n\n"
+        + (f"**Na tle grupy:** {ocena['na_tle_grupy']}\n\n"
+           if ocena.get("na_tle_grupy") else "")
+        +
         f"**Mocne strony**\n{lista('mocne_strony')}\n\n"
         f"**Do poprawy**\n{lista('do_poprawy')}\n\n"
         f"**Plan na następny okres**\n{plan}\n\n"

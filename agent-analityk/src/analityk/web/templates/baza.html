@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block tytul %}Agent Analityk{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styl.css') }}">
+</head>
+<body>
+
+<header class="gorna-belka">
+  <div class="powloka">
+    <a class="logo" href="{{ url_for('pulpit') }}">Agent <span>Analityk</span></a>
+    <nav class="nawigacja">
+      <a href="{{ url_for('pulpit') }}"        class="{{ 'aktywna' if request.endpoint == 'pulpit' }}">Pulpit</a>
+      <a href="{{ url_for('organizacja') }}"   class="{{ 'aktywna' if request.endpoint == 'organizacja' }}">Biura i ludzie</a>
+      <a href="{{ url_for('wczytaj') }}"       class="{{ 'aktywna' if request.endpoint == 'wczytaj' }}">Wczytaj dane</a>
+    </nav>
+  </div>
+</header>
+
+<div class="powloka">
+
+  {% with wiadomosci = get_flashed_messages(with_categories=true) %}
+    {% for kategoria, tresc in wiadomosci %}
+      <div class="alert {{ kategoria }}">{{ tresc }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  {% block pasek_okresu %}
+    <div class="pasek-okresu">
+      <div class="zakladki-okresu">
+        {% for typ in okres.typy %}
+          <a href="{{ url_for(request.endpoint, **(request.view_args or {})) }}?okres={{ typ }}"
+             class="{{ 'aktywna' if typ == okres.typ }}">{{ okres.nazwy_okresow[typ] }}</a>
+        {% endfor %}
+      </div>
+      <a class="strzalka" title="Poprzedni okres"
+         href="?okres={{ okres.typ }}&klucz={{ okres.poprzedni }}">‹</a>
+      <span class="etykieta-okresu">{{ okres.etykieta }}</span>
+      <a class="strzalka" title="Następny okres"
+         href="?okres={{ okres.typ }}&klucz={{ okres.nastepny }}">›</a>
+      <span class="notatka">{{ okres.od }} – {{ okres.do }}</span>
+    </div>
+  {% endblock %}
+
+  {% block tresc %}{% endblock %}
+
+  <p class="stopka">
+    Oceny generowane przez model AI są rekomendacją dla przełożonego, nie decyzją kadrową.
+    Dane w panelu to dane osobowe — patrz <code>docs/rodo-ai-act.md</code>.
+  </p>
+</div>
+
+</body>
+</html>

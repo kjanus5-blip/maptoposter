@@ -1,0 +1,314 @@
+"""Testy struktury organizacji, porównań i panelu WWW.
+
+    python -m unittest discover -s tests
+"""
+
+from __future__ import annotations
+
+import sys
+import tempfile
+import unittest
+from datetime import datetime, timedelta
+from pathlib import Path
+
+KORZEN = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(KORZEN / "src"))
+
+from analityk.benchmark import (  # noqa: E402
+    grupy_porownawcze,
+    metryki_biura,
+    ocena_pozycji,
+    opis_dla_modelu,
+    percentyl,
+    porownaj_z_grupa,
+    ranking_biur,
+    statystyki,
+)
+from analityk.metrics import etykieta_okresu, nastepny_okres, podsumowanie  # noqa: E402
+from analityk.models import Activity, zbuduj_id  # noqa: E402
+from analityk.org import (  # noqa: E402
+    ROLA_AGENT,
+    ROLA_KIEROWNIK,
+    ROLA_KOORDYNATOR,
+    Biuro,
+    Pracownik,
+    normy_dla_roli,
+)
+from analityk.store import Baza  # noqa: E402
+
+
+def akt(pracownik: str, dzien: str, godzina: int, wynik: str = "odmowa",
+        notatka: str = "x" * 40) -> Activity:
+    d = datetime.fromisoformat(f"{dzien}T{godzina:02d}:00")
+    return Activity(
+        id=zbuduj_id(pracownik, d, wynik, notatka + str(godzina)),
+        pracownik=pracownik, pracownik_nazwa=pracownik.replace("_", " ").title(),
+        data=d, kanal="bezposredni", notatka=notatka, wynik=wynik,
+        budynek="Dworcowa 7", lokal=str(godzina),
+    )
+
+
+class TestRoleINormy(unittest.TestCase):
+    def test_normy_zalezne_od_roli(self):
+        agent = normy_dla_roli(ROLA_AGENT)["dzien"]["aktywnosci"]
+        koordynator = normy_dla_roli(ROLA_KOORDYNATOR)["dzien"]["aktywnosci"]
+        kierownik = normy_dla_roli(ROLA_KIEROWNIK)["dzien"]["aktywnosci"]
+        self.assertGreater(agent, koordynator)
+        self.assertGreater(koordynator, kierownik)
+
+    def test_okresy_skaluja_sie_z_normy_dziennej(self):
+        normy = normy_dla_roli(ROLA_AGENT)
+        self.assertEqual(normy["tydzien"]["aktywnosci"], normy["dzien"]["aktywnosci"] * 5)
+        self.assertEqual(normy["rok"]["aktywnosci"], normy["dzien"]["aktywnosci"] * 250)
+
+    def test_indywidualna_norma_nadpisuje_role(self):
+        p = Pracownik(klucz="x", imie_nazwisko="X", rola=ROLA_AGENT,
+                      normy={"dzien": {"aktywnosci": 99}})
+        self.assertEqual(p.normy_pelne["dzien"]["aktywnosci"], 99)
+        # nienadpisane pola zostają z roli
+        self.assertEqual(p.normy_pelne["dzien"]["rozmowy"],
+                         normy_dla_roli(ROLA_AGENT)["dzien"]["rozmowy"])
+
+    def test_nowicjusz(self):
+        self.assertTrue(Pracownik(klucz="a", imie_nazwisko="A", staz_miesiace=3).nowicjusz)
+        self.assertFalse(Pracownik(klucz="b", imie_nazwisko="B", staz_miesiace=24).nowicjusz)
+
+
+class TestStatystykiGrupy(unittest.TestCase):
+    def test_statystyki(self):
+        st = statystyki([10, 20, 30, 40])
+        self.assertEqual(st["n"], 4)
+        self.assertEqual(st["mediana"], 25.0)
+        self.assertEqual(st["min"], 10)
+        self.assertEqual(st["max"], 40)
+
+    def test_pusta_grupa(self):
+        self.assertEqual(statystyki([])["n"], 0)
+        self.assertIsNone(percentyl(5, []))
+
+    def test_percentyl(self):
+        self.assertEqual(percentyl(50, [10, 20, 30]), 100)
+        self.assertEqual(percentyl(5, [10, 20, 30]), 0)
+        self.assertEqual(percentyl(20, [10, 20, 30]), 67)
+
+    def test_kierunek_metryki(self):
+        # wysoki percentyl przy metryce "im mniej tym lepiej" to wynik słaby
+        self.assertEqual(ocena_pozycji(90, wyzej_lepiej=True), "powyżej grupy")
+        self.assertEqual(ocena_pozycji(90, wyzej_lepiej=False), "poniżej grupy")
+        self.assertEqual(ocena_pozycji(None, wyzej_lepiej=True), "brak danych")
+
+    def test_porownanie_pomija_oceniana_osobe(self):
+        moje = podsumowanie([akt("a", "2026-08-10", g) for g in range(9, 14)], "dzien")
+        grupa = {
+            "a": moje,
+            "b": podsumowanie([akt("b", "2026-08-10", g) for g in range(9, 11)], "dzien"),
+            "c": podsumowanie([akt("c", "2026-08-10", g) for g in range(9, 12)], "dzien"),
+        }
+        wynik = porownaj_z_grupa(moje, grupa, "a", "Agenci")
+        self.assertEqual(wynik["liczebnosc"], 2)          # bez osoby ocenianej
+        self.assertFalse(wynik["wiarygodne"])             # 2 < próg 3
+        self.assertEqual(wynik["pola"]["liczba_aktywnosci"]["mediana_grupy"], 2.5)
+        self.assertEqual(wynik["pola"]["liczba_aktywnosci"]["moja"], 5)
+
+    def test_opis_dla_modelu_oznacza_mala_grupe(self):
+        moje = podsumowanie([akt("a", "2026-08-10", 9)], "dzien")
+        grupa = {"a": moje, "b": podsumowanie([akt("b", "2026-08-10", 9)], "dzien")}
+        tekst = opis_dla_modelu([porownaj_z_grupa(moje, grupa, "a", "Agenci")])
+        self.assertIn("grupa za mała", tekst)
+        self.assertEqual(opis_dla_modelu([]), "(brak grupy porównawczej — za mało osób w tej roli)")
+
+
+class TestOrganizacjaWBazie(unittest.TestCase):
+    def setUp(self):
+        self.katalog = tempfile.TemporaryDirectory()
+        self.baza = Baza(Path(self.katalog.name) / "t.db")
+
+    def tearDown(self):
+        self.baza.zamknij()
+        self.katalog.cleanup()
+
+    def test_crud_biura(self):
+        biuro_id = self.baza.zapisz_biuro(Biuro(nazwa="Centrum", miasto="Bydgoszcz"))
+        self.assertEqual(self.baza.biuro(biuro_id).nazwa, "Centrum")
+        self.baza.zapisz_biuro(Biuro(id=biuro_id, nazwa="Centrum II", miasto="Toruń"))
+        self.assertEqual(self.baza.biuro(biuro_id).nazwa, "Centrum II")
+        self.assertEqual(len(self.baza.biura()), 1)
+
+    def test_usuniecie_biura_nie_kasuje_ludzi(self):
+        biuro_id = self.baza.zapisz_biuro(Biuro(nazwa="Centrum"))
+        self.baza.zapisz_pracownika(
+            Pracownik(klucz="jan", imie_nazwisko="Jan", biuro_id=biuro_id)
+        )
+        self.baza.usun_biuro(biuro_id)
+        jan = self.baza.pracownik("jan")
+        self.assertIsNotNone(jan)
+        self.assertIsNone(jan.biuro_id)
+        self.assertEqual([p.klucz for p in self.baza.nieprzypisani()], ["jan"])
+
+    def test_duplikat_nazwy_biura_nie_blokuje_bazy(self):
+        import sqlite3
+        self.baza.zapisz_biuro(Biuro(nazwa="Centrum"))
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.baza.zapisz_biuro(Biuro(nazwa="Centrum"))
+        # po nieudanym zapisie baza musi nadal przyjmować zapisy
+        self.baza.zapisz_pracownika(Pracownik(klucz="jan", imie_nazwisko="Jan"))
+        self.assertIsNotNone(self.baza.pracownik("jan"))
+
+    def test_synchronizacja_z_aktywnosci(self):
+        self.baza.zapisz_aktywnosci([akt("nowa_osoba", "2026-08-10", 10)])
+        self.assertEqual(self.baza.synchronizuj_pracownikow(), 1)
+        self.assertEqual(self.baza.synchronizuj_pracownikow(), 0)  # idempotentne
+        self.assertIsNone(self.baza.pracownik("nowa_osoba").biuro_id)
+
+    def test_filtrowanie_po_biurze_i_roli(self):
+        biuro_id = self.baza.zapisz_biuro(Biuro(nazwa="Centrum"))
+        self.baza.zapisz_pracownika(Pracownik(klucz="a", imie_nazwisko="A",
+                                              biuro_id=biuro_id, rola=ROLA_AGENT))
+        self.baza.zapisz_pracownika(Pracownik(klucz="k", imie_nazwisko="K",
+                                              biuro_id=biuro_id, rola=ROLA_KOORDYNATOR))
+        self.baza.zapisz_pracownika(Pracownik(klucz="z", imie_nazwisko="Z",
+                                              rola=ROLA_AGENT, aktywny=False))
+        self.assertEqual(len(self.baza.pracownicy(biuro_id=biuro_id)), 2)
+        self.assertEqual(len(self.baza.pracownicy(rola=ROLA_AGENT)), 1)  # nieaktywny pominięty
+        self.assertEqual(len(self.baza.pracownicy(tylko_aktywni=False)), 3)
+
+    def test_metryki_biura_z_puli_aktywnosci(self):
+        biuro_id = self.baza.zapisz_biuro(Biuro(nazwa="Centrum"))
+        for klucz in ("a", "b"):
+            self.baza.zapisz_pracownika(
+                Pracownik(klucz=klucz, imie_nazwisko=klucz.upper(), biuro_id=biuro_id)
+            )
+            self.baza.zapisz_aktywnosci([akt(klucz, "2026-08-10", g) for g in (9, 10, 11)])
+        m = metryki_biura(self.baza, biuro_id, "dzien", "2026-08-10")
+        self.assertEqual(m["liczba_aktywnosci"], 6)      # suma, nie średnia
+        self.assertEqual(m["liczba_pracownikow"], 2)
+        self.assertEqual(m["liczba_pracujacych"], 2)
+        # norma biura to suma norm indywidualnych
+        self.assertEqual(m["norma"]["aktywnosci"],
+                         2 * normy_dla_roli(ROLA_AGENT)["dzien"]["aktywnosci"])
+
+    def test_grupa_porownawcza_tylko_ta_sama_rola(self):
+        biuro_id = self.baza.zapisz_biuro(Biuro(nazwa="Centrum"))
+        for klucz, rola in (("a", ROLA_AGENT), ("b", ROLA_AGENT), ("k", ROLA_KOORDYNATOR)):
+            self.baza.zapisz_pracownika(Pracownik(klucz=klucz, imie_nazwisko=klucz.upper(),
+                                                  biuro_id=biuro_id, rola=rola))
+            self.baza.zapisz_aktywnosci([akt(klucz, "2026-08-10", g) for g in (9, 10)])
+        p = self.baza.pracownik("a")
+        moje = podsumowanie(self.baza.pobierz("a", "2026-08-10", "2026-08-10"), "dzien")
+        grupy = grupy_porownawcze(self.baza, p, "dzien", "2026-08-10", moje)
+        self.assertTrue(grupy)
+        for g in grupy:
+            self.assertEqual(g["liczebnosc"], 1)  # tylko drugi agent, bez koordynatorki
+
+    def test_ranking_biur(self):
+        for nazwa, ile in (("Centrum", 5), ("Wschód", 2)):
+            biuro_id = self.baza.zapisz_biuro(Biuro(nazwa=nazwa))
+            klucz = nazwa.lower()
+            self.baza.zapisz_pracownika(
+                Pracownik(klucz=klucz, imie_nazwisko=nazwa, biuro_id=biuro_id)
+            )
+            self.baza.zapisz_aktywnosci(
+                [akt(klucz, "2026-08-10", 9 + i) for i in range(ile)]
+            )
+        ranking = ranking_biur(self.baza, "dzien", "2026-08-10")
+        self.assertEqual([r["miejsce"] for r in ranking], [1, 2])
+        self.assertGreaterEqual(ranking[0]["wartosc"], ranking[1]["wartosc"])
+
+
+class TestEtykietyOkresow(unittest.TestCase):
+    def test_etykiety(self):
+        self.assertIn("poniedziałek", etykieta_okresu("2026-08-10", "dzien"))
+        self.assertIn("sierpień 2026", etykieta_okresu("2026-08", "miesiac"))
+        self.assertIn("III kwartał", etykieta_okresu("2026-Q3", "kwartal"))
+        self.assertIn("tydzień 33", etykieta_okresu("2026-W33", "tydzien"))
+
+    def test_nastepny_okres_przez_granice_roku(self):
+        self.assertEqual(nastepny_okres("2026-12", "miesiac"), "2027-01")
+        self.assertEqual(nastepny_okres("2026-Q4", "kwartal"), "2027-Q1")
+        self.assertEqual(nastepny_okres("2026-08-10", "dzien"), "2026-08-11")
+
+
+class TestPanelWWW(unittest.TestCase):
+    """Panel ma się nie wywracać — na pustej bazie, na śmieciach w URL-u
+    i na normalnych danych."""
+
+    def setUp(self):
+        try:
+            from analityk.web import stworz_aplikacje
+        except ImportError:
+            self.skipTest("brak pakietu flask")
+        self.katalog = tempfile.TemporaryDirectory()
+        sciezka = Path(self.katalog.name) / "t.db"
+        baza = Baza(sciezka)
+        biuro_id = baza.zapisz_biuro(Biuro(nazwa="Centrum", miasto="Bydgoszcz"))
+        dzis = datetime.now().date()
+        for klucz, rola in (("a", ROLA_AGENT), ("b", ROLA_AGENT), ("k", ROLA_KOORDYNATOR)):
+            baza.zapisz_pracownika(Pracownik(klucz=klucz, imie_nazwisko=klucz.upper(),
+                                             biuro_id=biuro_id, rola=rola))
+            baza.zapisz_aktywnosci([
+                akt(klucz, (dzis - timedelta(days=d)).isoformat(), 9 + g,
+                    "lead" if g == 0 else "odmowa")
+                for d in range(3) for g in range(4)
+            ])
+        baza.zamknij()
+        self.app = stworz_aplikacje(str(sciezka))
+        self.c = self.app.test_client()
+
+    def tearDown(self):
+        self.katalog.cleanup()
+
+    def test_wszystkie_widoki_odpowiadaja(self):
+        for sciezka in ("/", "/?okres=tydzien", "/?okres=miesiac", "/?okres=kwartal",
+                        "/?okres=rok", "/biuro/1", "/pracownik/a", "/pracownik/k",
+                        "/organizacja", "/wczytaj", "/pracownik/a/raport.md"):
+            with self.subTest(sciezka=sciezka):
+                self.assertEqual(self.c.get(sciezka).status_code, 200)
+
+    def test_smieci_w_adresie_nie_wywracaja_panelu(self):
+        for sciezka in ("/?okres=bzdura&klucz=nonsens", "/?okres=tydzien&klucz=2026-W99",
+                        "/biuro/1?okres=miesiac&klucz=xx", "/pracownik/nie_ma_takiego",
+                        "/biuro/999"):
+            with self.subTest(sciezka=sciezka):
+                self.assertEqual(
+                    self.c.get(sciezka, follow_redirects=True).status_code, 200
+                )
+
+    def test_porownanie_widoczne_na_karcie_pracownika(self):
+        tresc = self.c.get("/pracownik/a").get_data(as_text=True)
+        self.assertIn("Na tle innych", tresc)
+        self.assertIn("Mediana grupy", tresc)
+
+    def test_formularz_zapisuje_przypisanie(self):
+        odp = self.c.post("/organizacja/pracownik/a",
+                          data={"biuro_id": "1", "rola": "kierownik",
+                                "imie_nazwisko": "Nowe Nazwisko", "staz_miesiace": "12",
+                                "aktywny": "1"},
+                          follow_redirects=True)
+        self.assertEqual(odp.status_code, 200)
+        baza = Baza(self.app.config["SCIEZKA_BAZY"])
+        p = baza.pracownik("a")
+        baza.zamknij()
+        self.assertEqual(p.rola, "kierownik")
+        self.assertEqual(p.imie_nazwisko, "Nowe Nazwisko")
+        self.assertEqual(p.staz_miesiace, 12)
+
+    def test_post_zachowuje_wybrany_okres(self):
+        """POST przekazuje okres w formularzu — bez tego akcje działały na
+        dzisiejszym dniu zamiast na okresie widocznym na ekranie."""
+        odp = self.c.post("/pracownik/a/pamiec",
+                          data={"tresc": "Ustalenie testowe", "typ": "ustalenie_1n1",
+                                "okres": "tydzien", "klucz": "2026-W33"},
+                          follow_redirects=False)
+        self.assertIn("okres=tydzien", odp.headers["Location"])
+        self.assertIn("klucz=2026-W33", odp.headers["Location"])
+
+    def test_pusta_baza(self):
+        with tempfile.TemporaryDirectory() as pusty:
+            from analityk.web import stworz_aplikacje
+            c = stworz_aplikacje(str(Path(pusty) / "pusta.db")).test_client()
+            for sciezka in ("/", "/organizacja", "/wczytaj"):
+                self.assertEqual(c.get(sciezka).status_code, 200)
+
+
+if __name__ == "__main__":
+    unittest.main()

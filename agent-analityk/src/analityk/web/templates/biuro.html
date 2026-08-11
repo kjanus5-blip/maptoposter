@@ -1,0 +1,230 @@
+{% extends "baza.html" %}
+{% import "makra.html" as mk %}
+{% block tytul %}{{ biuro.nazwa }} — Agent Analityk{% endblock %}
+
+{% block tresc %}
+
+<div class="naglowek-strony">
+  <h1>{{ biuro.nazwa }}</h1>
+  <span class="podtytul">
+    {% if biuro.miasto %}{{ biuro.miasto }} · {% endif %}
+    {{ m.liczba_pracownikow }} osób
+    {% if miejsce %}· <span class="odznaka neutralna">{{ miejsce }}. miejsce z {{ wszystkie_biura|length }}</span>{% endif %}
+  </span>
+</div>
+
+{% if m.pusty %}
+  <div class="karta">
+    <p class="pusto">To biuro nie ma aktywności w tym okresie.</p>
+  </div>
+{% else %}
+
+<div class="siatka-2">
+  <div>
+    <div class="kafle">
+      {{ mk.kafel('Aktywności', m.liczba_aktywnosci,
+                  'pracowało ' ~ m.liczba_pracujacych ~ ' z ' ~ m.liczba_pracownikow) }}
+      {{ mk.kafel('Na osobę', (m.liczba_aktywnosci / m.liczba_pracujacych)|round(1),
+                  'średnia w biurze') }}
+      {{ mk.kafel('Leady / sygnały', m.leady ~ ' / ' ~ m.sygnaly,
+                  'konwersja ' ~ m.konwersja_na_lead_proc ~ '%') }}
+      {{ mk.kafel('Dotarcie', m.wskaznik_dotarcia_proc ~ '%', 'rozmowy / próby') }}
+      {{ mk.kafel('Follow-up', m.follow_up_proc ~ '%', 'co zostaje po „nie”') }}
+      {{ mk.kafel('Jakość notatek', m.notatki_merytoryczne_proc ~ '%',
+                  'higiena danych w CRM') }}
+    </div>
+  </div>
+  <div class="karta" style="text-align:center">
+    <div class="nazwa" style="font-size:12px;color:var(--tekst-slaby);text-transform:uppercase;letter-spacing:.4px">
+      Punkty biura</div>
+    <div style="font-size:34px;font-weight:650;letter-spacing:-1px;margin:4px 0">
+      {{ '{:,.0f}'.format(m.punkty.punkty_razem)|replace(',', ' ') }}</div>
+    <div class="notatka">
+      aktywność {{ '{:,.0f}'.format(m.punkty.punkty_za_aktywnosc)|replace(',', ' ') }}
+      · bonusy {{ '{:,.0f}'.format(m.punkty.punkty_bonusowe)|replace(',', ' ') }}
+    </div>
+    {{ wskaznik|safe }}
+    <div class="notatka">
+      {% for rola, ile in m.role.items() %}
+        {{ nazwy_rol[rola] }}: {{ ile }}{{ ", " if not loop.last }}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="karta">
+  <h2>Klasyfikacja biura — rozbicie punktów</h2>
+  <div class="przewijane">
+    <table>
+      <thead>
+        <tr><th>Kod</th><th>Wskaźnik</th><th class="liczba">Ile</th>
+            <th class="liczba">Stawka</th><th class="liczba">Punkty</th></tr>
+      </thead>
+      <tbody>
+      {% for poz in m.punkty.pozycje %}
+        <tr>
+          <td><code>{{ poz.kod }}</code></td>
+          <td>{{ poz.nazwa }}</td>
+          <td class="liczba">{{ '—' if poz.brak_danych else poz.ile|round(0)|int }}</td>
+          <td class="liczba">{{ poz.stawka }}</td>
+          <td class="liczba"><strong>{{ poz.punkty|round(0)|int }}</strong></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <h3>Bonusy</h3>
+  <div class="przewijane">
+    <table>
+      <thead><tr><th>Bonus</th><th class="liczba">Wynik</th><th class="liczba">Próg</th>
+                 <th class="liczba">Punkty</th></tr></thead>
+      <tbody>
+      {% for b in m.punkty.bonusy %}
+        <tr>
+          <td>{{ b.nazwa }}
+            {% if b.do_potwierdzenia %}<span class="odznaka srednia">zasada do potwierdzenia</span>{% endif %}</td>
+          <td class="liczba">
+            {% if b.udzial_proc is none %}<span class="notatka">—</span>
+            {% else %}{{ b.udzial_proc }}%{% endif %}
+          </td>
+          <td class="liczba">{{ '>' ~ b.prog_proc ~ '%' if b.prog_proc else '—' }}</td>
+          <td class="liczba">
+            {% if b.przyznany %}<span class="odznaka dobra">+{{ b.punkty }}</span>
+            {% else %}<span class="odznaka neutralna">0</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="karta">
+  <h2>Zespół</h2>
+  {% for grupa in role_w_biurze %}
+    <h3>{{ grupa.nazwa }} ({{ grupa.osoby|length }})</h3>
+    <div class="przewijane">
+      <table>
+        <thead>
+          <tr>
+            <th>Pracownik</th><th class="liczba">Aktywności</th>
+            <th class="liczba">Norma</th><th class="liczba">Leady</th>
+            <th class="liczba">Dotarcie</th><th class="liczba">Notatki</th>
+            <th class="liczba">Follow-up</th><th class="liczba">Indeks</th>
+            <th class="liczba">Punkty</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for p, met in grupa.osoby %}
+          <tr>
+            <td>
+              <a href="{{ url_for('widok_pracownika', klucz=p.klucz) }}{{ mk.q(okres) }}">{{ p.imie_nazwisko }}</a>
+              {% if p.staz_miesiace and p.nowicjusz %}<span class="odznaka neutralna">nowicjusz</span>{% endif %}
+            </td>
+            {% if met.pusty %}
+              <td class="liczba" colspan="8"><span class="notatka">brak aktywności w okresie</span></td>
+            {% else %}
+              <td class="liczba">{{ met.liczba_aktywnosci }}</td>
+              <td class="liczba">
+                {% if met.realizacja_normy_proc is not none %}
+                  {{ mk.odznaka(met.realizacja_normy_proc, 90, 70, '%') }}
+                {% else %}—{% endif %}
+              </td>
+              <td class="liczba">{{ met.leady }}</td>
+              <td class="liczba">{{ met.wskaznik_dotarcia_proc }}%</td>
+              <td class="liczba">{{ met.notatki_merytoryczne_proc }}%</td>
+              <td class="liczba">{{ met.follow_up_proc }}%</td>
+              <td class="liczba">{{ mk.odznaka(met.indeks_jakosci) }}</td>
+              <td class="liczba"><strong>{{ '{:,.0f}'.format(met.punkty_razem or 0)|replace(',', ' ') }}</strong></td>
+            {% endif %}
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="siatka">
+  <div class="karta">
+    <h2>Co wyszło z kontaktów</h2>
+    {{ wykres_wynikow|safe }}
+  </div>
+  <div class="karta">
+    <h2>Teren</h2>
+    {% if m.top_budynki %}
+      <ul class="lista-czysta">
+        {% for budynek, ile in m.top_budynki.items() %}
+          <li>{{ budynek }} <span class="notatka">· {{ ile }} kontaktów</span></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="pusto">Brak danych adresowych.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if trend %}
+  <div class="karta">
+    <h2>Trend względem poprzedniego okresu</h2>
+    <div class="przewijane">
+      <table>
+        <thead><tr><th>Wskaźnik</th><th class="liczba">Teraz</th><th class="liczba">Poprzednio</th><th>Zmiana</th></tr></thead>
+        <tbody>
+        {% for pole, d in trend.items() %}
+          <tr>
+            <td>{{ pole.replace('_', ' ')|capitalize }}</td>
+            <td class="liczba">{{ d.teraz }}</td>
+            <td class="liczba">{{ d.poprzednio }}</td>
+            <td>{{ mk.zmiana(d) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+{% endif %}
+
+<div class="karta">
+  <h2>Biuro na tle pozostałych</h2>
+  <div class="przewijane">
+    <table>
+      <thead>
+        <tr>
+          <th class="miejsce">#</th><th>Biuro</th><th class="liczba">Osób</th>
+          <th class="liczba">Aktywności</th><th class="liczba">Na osobę</th>
+          <th class="liczba">Leady</th><th class="liczba">Dotarcie</th>
+          <th class="liczba">Follow-up</th><th class="liczba">Punkty</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for poz in wszystkie_biura %}
+        {% set b = poz.metryki %}
+        <tr style="{{ 'font-weight:600' if poz.biuro.id == biuro.id }}">
+          <td class="miejsce">{{ poz.miejsce }}</td>
+          <td><a href="{{ url_for('widok_biura', biuro_id=poz.biuro.id) }}{{ mk.q(okres) }}">{{ poz.biuro.nazwa }}</a></td>
+          {% if b.pusty %}
+            <td class="liczba">{{ b.liczba_pracownikow }}</td>
+            <td class="liczba" colspan="6"><span class="notatka">brak aktywności</span></td>
+          {% else %}
+            <td class="liczba">{{ b.liczba_pracujacych }}/{{ b.liczba_pracownikow }}</td>
+            <td class="liczba">{{ b.liczba_aktywnosci }}</td>
+            <td class="liczba">{{ (b.liczba_aktywnosci / b.liczba_pracujacych)|round(1) }}</td>
+            <td class="liczba">{{ b.leady }}</td>
+            <td class="liczba">{{ b.wskaznik_dotarcia_proc }}%</td>
+            <td class="liczba">{{ b.follow_up_proc }}%</td>
+            <td class="liczba"><strong>{{ '{:,.0f}'.format(b.punkty_razem or 0)|replace(',', ' ') }}</strong></td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="notatka" style="margin-top:10px">
+    Biura różnią się terenem i składem zespołu — ranking jest punktem wyjścia do
+    pytania „dlaczego”, a nie oceną samą w sobie.
+  </p>
+</div>
+
+{% endblock %}

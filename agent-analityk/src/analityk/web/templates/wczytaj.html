@@ -1,0 +1,63 @@
+{% extends "baza.html" %}
+{% block tytul %}Wczytaj dane — Agent Analityk{% endblock %}
+{% block pasek_okresu %}{% endblock %}
+
+{% block tresc %}
+
+<div class="naglowek-strony">
+  <h1>Wczytaj dane</h1>
+  <span class="podtytul">Codzienny eksport z CRM — PDF, CSV albo XLSX.</span>
+</div>
+
+<div class="karta">
+  <form method="post" enctype="multipart/form-data">
+    <div class="pola">
+      <div style="grid-column: span 2">
+        <label for="pliki">Pliki eksportu (można zaznaczyć kilka naraz)</label>
+        <input type="file" id="pliki" name="pliki" multiple
+               accept=".pdf,.csv,.tsv,.txt,.xlsx,.xls" required>
+      </div>
+      <div><button type="submit">Wczytaj</button></div>
+    </div>
+  </form>
+  <p class="notatka" style="margin-top:12px">
+    Ten sam plik można wgrać wiele razy — rekordy są rozpoznawane po zawartości,
+    więc duplikaty nie powstają. Nowe osoby trafiają do listy „bez biura”
+    i czekają na przypisanie.
+  </p>
+</div>
+
+<div class="karta">
+  <h2>Jeśli CRM daje wybór formatu</h2>
+  <p>Wybierz <strong>CSV albo XLSX</strong>, nie PDF. PDF to wydruk — parser
+    odzyskuje z niego strukturę tabeli i zadziała, ale zmiana układu wydruku
+    w CRM go zepsuje. CSV jest odporniejszy i szybszy.</p>
+  <p class="notatka">Rozpoznawane kolumny: data, przypisany do, typ, mobilny/podtyp,
+    związany z, opis. Nazwy dopasowywane są elastycznie — wielkość liter i polskie
+    znaki nie mają znaczenia.</p>
+</div>
+
+{% if zrodla %}
+  <div class="karta">
+    <h2>Wczytane pliki</h2>
+    <div class="przewijane">
+      <table>
+        <thead>
+          <tr><th>Plik</th><th class="liczba">Rekordów</th><th>Zakres dat</th><th>Wczytano</th></tr>
+        </thead>
+        <tbody>
+        {% for z in zrodla %}
+          <tr>
+            <td>{{ z.zrodlo or '—' }}</td>
+            <td class="liczba">{{ z.n }}</td>
+            <td>{{ z.od }} – {{ z.do }}</td>
+            <td class="notatka">{{ (z.kiedy or '')[:16]|replace('T', ' ') }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}

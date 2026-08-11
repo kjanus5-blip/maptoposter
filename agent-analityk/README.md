@@ -1,10 +1,13 @@
 # Agent Analityk — analiza aktywności agentów biura nieruchomości
 
 Wrzucasz codziennie eksport z CRM. Dostajesz: podsumowanie ilościowe i
-jakościowe, ocenę mocnych i słabych stron, konkretny plan na kolejny okres,
-listę leadów do dopilnowania i alerty dla siebie jako szefa. Osobno dla każdego
-pracownika, w ujęciu dziennym / tygodniowym / miesięcznym / kwartalnym /
-rocznym.
+jakościowe, punkty z oficjalnej klasyfikacji sieci, ocenę mocnych i słabych
+stron, porównanie z innymi osobami na tym samym stanowisku, listę leadów do
+dopilnowania i alerty dla siebie jako szefa. Osobno dla każdego pracownika,
+w podziale na biura i role, w ujęciu dziennym / tygodniowym / miesięcznym /
+kwartalnym / rocznym.
+
+Wszystko przez **panel WWW** — albo z wiersza poleceń, jeśli wolisz.
 
 Zbudowane i przetestowane na prawdziwym eksporcie „Analiza Działań i Spotkań”
 (47 rekordów z jednego dnia pracy).
@@ -24,32 +27,40 @@ heurystyki regułowej.
 
 ---
 
-## Start
+## Start — panel WWW
 
 ```bash
 cd agent-analityk
 pip install -r requirements.txt
+PYTHONPATH=src python3 -m analityk serwer
+```
 
-# 1. wczytaj eksport (PDF z CRM albo CSV/XLSX)
-PYTHONPATH=src python3 -m analityk wczytaj ~/eksporty/analiza_dzialan_2026-08-10.pdf
-# szybki test na danych demonstracyjnych (fikcyjnych):
-PYTHONPATH=src python3 -m analityk wczytaj przyklady/przyklad_eksport_csv.csv
+Otwórz `http://127.0.0.1:5000` i dalej klikaj:
 
-# 2. ustaw profil pracownika (staż wpływa na to, jak ostro ocenia agent AI)
-PYTHONPATH=src python3 -m analityk profil --pracownik jan_kowalski \
-    --staz 3 --rola pozyskiwacz --obszar Dworcowa Kniaziewicza --norma-dzienna 45
+1. **Wczytaj dane** — przeciągnij eksport z CRM (PDF, CSV albo XLSX). Ten sam
+   plik można wgrać wielokrotnie, duplikaty nie powstają.
+2. **Biura i ludzie** — dodaj biura, przypisz osoby, ustaw role
+   (agent / koordynator/ka / kierownik) i staż. Od tego zależy, z kim ktoś
+   jest porównywany i jakie ma normy.
+3. **Pulpit** — ranking biur i ludzi, punkty, alerty. Przełącznik okresu
+   dzień/tydzień/miesiąc/kwartał/rok jest na górze każdej strony.
+4. **Karta pracownika** — pełne rozbicie punktów, porównanie z grupą,
+   wykresy, leady do dopilnowania, pamięć agenta i przycisk generowania
+   oceny AI.
 
-# 3. raport dzienny
+Panel słucha tylko na `127.0.0.1` — nie jest wystawiony do sieci.
+
+## To samo z wiersza poleceń
+
+```bash
+PYTHONPATH=src python3 -m analityk wczytaj ~/eksporty/analiza_2026-08-10.pdf
+PYTHONPATH=src python3 -m analityk biuro --dodaj "Biuro Centrum" --miasto Bydgoszcz
+PYTHONPATH=src python3 -m analityk pracownik --klucz jan_kowalski \
+    --biuro 1 --rola agent --staz 3 --obszar Dworcowa Kniaziewicza
+
+PYTHONPATH=src python3 -m analityk zespol --okres miesiac --data 2026-08-01
 PYTHONPATH=src python3 -m analityk raport --pracownik jan_kowalski \
-    --okres dzien --data 2026-08-10
-
-# 4. to samo z oceną AI (wymaga ANTHROPIC_API_KEY)
-export ANTHROPIC_API_KEY=sk-ant-...
-PYTHONPATH=src python3 -m analityk raport --pracownik jan_kowalski \
-    --okres dzien --data 2026-08-10 --llm --zapisz
-
-# 5. widok dla szefa: ranking i alerty całego zespołu
-PYTHONPATH=src python3 -m analityk zespol --okres tydzien --data 2026-08-10
+    --okres tydzien --data 2026-08-10 --llm --zapisz     # --llm: ANTHROPIC_API_KEY
 ```
 
 Podgląd promptu bez płacenia za wywołanie API: dodaj `--pokaz-prompt`.
@@ -61,8 +72,10 @@ Podgląd promptu bez płacenia za wywołanie API: dodaj `--pokaz-prompt`.
 | `wczytaj PLIK...` | wczytuje eksporty (PDF/CSV/XLSX); ponowne wczytanie tego samego pliku nie tworzy duplikatów |
 | `raport --pracownik X --okres dzien\|tydzien\|miesiac\|kwartal\|rok` | pełny raport pracownika |
 | `metryki --pracownik X --okres ...` | surowe liczby w JSON (do Excela, BI, własnych wykresów) |
-| `zespol --okres ...` | ranking zespołu + wszystkie alerty w jednym miejscu |
-| `profil --pracownik X ...` | staż, rola, teren, indywidualne normy |
+| `zespol --okres ...` | ranking biur i pracowników + wszystkie alerty |
+| `serwer` | panel WWW (`--host`, `--port`) |
+| `biuro --dodaj NAZWA` / `biuro` | dodanie i lista biur |
+| `pracownik --klucz X --biuro N --rola ...` | przypisanie do biura, rola, staż, normy |
 | `pamiec --pracownik X --dodaj "..."` | ustalenia z 1:1 — agent pamięta je przy następnym raporcie |
 
 Okres wskazujesz przez `--data 2026-08-10` (dowolny dzień z okresu) albo
@@ -97,18 +110,21 @@ nie korzysta.
 ```
 src/analityk/
   models.py            kanoniczny rekord aktywności + parsowanie adresów
+  org.py               biura, pracownicy, role, normy zależne od roli
   ingest/pdf_crm.py    parser wydruku PDF z CRM (siatka tabeli, sklejanie stron)
   ingest/csv_generic.py CSV/XLSX z elastycznym mapowaniem nagłówków
   classify.py          regułowa klasyfikacja notatek (PL, odporna na literówki)
-  store.py             SQLite: aktywności, raporty, pamięć agenta
+  store.py             SQLite: aktywności, organizacja, wskaźniki, raporty, pamięć
   metrics.py           metryki + okresy D/T/M/Kw/R + normy + alerty
+  punktacja.py         oficjalna klasyfikacja sieci: stawki, bonusy, punkty
+  benchmark.py         porównania: osoba do grupy, biuro do biura
   report.py            raport Markdown (działa bez LLM)
   prompts.py           prompty (system + user) — do edycji bez ruszania kodu
   llm.py               jedyne miejsce kontaktu z API Claude
   cli.py               interfejs wiersza poleceń
-config/pracownicy/     profile: staż, rola, teren, normy, styl feedbacku
-docs/                  koncepcja, katalog KPI, RODO i AI Act
-tests/                 19 testów: python3 -m unittest discover -s tests
+  web/                 panel WWW: trasy, szablony, wykresy SVG, styl
+docs/                  koncepcja, KPI, punktacja, RODO i AI Act
+tests/                 63 testy: python3 -m unittest discover -s tests
 ```
 
 ## Dokumentacja
@@ -117,6 +133,9 @@ tests/                 19 testów: python3 -m unittest discover -s tests
   każdego pracownika”, dzienny obieg pracy, etapy wdrożenia, koszty
 - [`docs/kpi.md`](docs/kpi.md) — co jeszcze warto mierzyć w biurze
   nieruchomości: pełny lejek od pukania do aktu notarialnego
+- [`docs/punktacja.md`](docs/punktacja.md) — oficjalna klasyfikacja sieci:
+  stawki, bonusy, co liczy się automatycznie, a co trzeba wpisać, oraz trzy
+  miejsca wymagające Twojego potwierdzenia
 - [`docs/rodo-ai-act.md`](docs/rodo-ai-act.md) — ocena pracownika przez AI:
   co wolno, czego nie, i jak to ustawić, żeby było legalne
 
@@ -129,8 +148,15 @@ tests/                 19 testów: python3 -m unittest discover -s tests
 - **PDF to droga awaryjna.** Parser trzyma się siatki tabeli i sklejania
   wierszy przeciętych granicą stron — działa, ale zmiana układu wydruku w CRM
   go zepsuje. Jeśli CRM eksportuje CSV/XLSX, używaj tego.
-- **Normy domyślne są zgadywane** (40 aktywności dziennie). Ustaw własne w
-  profilu pracownika, inaczej „realizacja normy” nic nie znaczy.
+- **Normy domyślne są zgadywane** (40 aktywności dziennie dla agenta, mniej
+  dla koordynatorki i kierownika). Ustaw własne przy pracowniku, inaczej
+  „realizacja normy” nic nie znaczy.
+- **Punkty są niekompletne, dopóki nie uzupełnisz wskaźników.** Z eksportu
+  aktywności liczą się automatycznie tylko IM3 i R4 — reszta tabeli pochodzi
+  z innych modułów CRM. Panel pokazuje procent kompletności przy każdej
+  klasyfikacji, żeby nikt nie porównywał uzupełnionych z nieuzupełnionymi.
+- **Porównania przy małej grupie są oznaczane jako niewiarygodne** (próg: 3
+  osoby w tej samej roli) i nie powinny iść do oceny.
 - System mierzy **aktywność pozyskiwania**. Etapów po spotkaniu (umowy,
   transakcje, prowizje) w tym eksporcie nie ma — patrz `docs/kpi.md`,
   sekcja o tym, jak je dołożyć.

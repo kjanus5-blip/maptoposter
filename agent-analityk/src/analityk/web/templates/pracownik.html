@@ -1,0 +1,337 @@
+{% extends "baza.html" %}
+{% import "makra.html" as mk %}
+{% block tytul %}{{ p.imie_nazwisko }} — Agent Analityk{% endblock %}
+
+{% block tresc %}
+
+<div class="naglowek-strony">
+  <h1>{{ p.imie_nazwisko }}</h1>
+  <span class="podtytul">
+    {{ nazwy_rol[p.rola] }}
+    {% if p.biuro_id %}
+      · <a href="{{ url_for('widok_biura', biuro_id=p.biuro_id) }}{{ mk.q(okres) }}">{{ p.biuro_nazwa }}</a>
+    {% else %}· <span class="odznaka srednia">bez biura</span>{% endif %}
+    {% if p.staz_miesiace %}· staż {{ p.staz_miesiace }} mies.{% endif %}
+    {% if p.nowicjusz %}<span class="odznaka neutralna">nowicjusz</span>{% endif %}
+  </span>
+</div>
+
+{% if m.pusty %}
+  <div class="karta"><p class="pusto">Brak aktywności w tym okresie.</p></div>
+{% else %}
+
+<div class="siatka-2">
+  <div>
+    <div class="kafle">
+      {{ mk.kafel('Aktywności', m.liczba_aktywnosci,
+                 'norma ' ~ (m.norma_proporcjonalna if m.norma_proporcjonalna is defined
+                             else m.norma.aktywnosci)) }}
+      {{ mk.kafel('Rozmowy', m.rozmowy_odbyte, 'dotarcie ' ~ m.wskaznik_dotarcia_proc ~ '%') }}
+      {{ mk.kafel('Leady / sygnały', m.leady ~ ' / ' ~ m.sygnaly,
+                 'konwersja ' ~ m.konwersja_na_lead_proc ~ '%') }}
+      {{ mk.kafel('Follow-up', m.follow_up_proc ~ '%',
+                 m.material_zostawiony ~ ' × materiał') }}
+    </div>
+  </div>
+  <div class="karta" style="text-align:center">
+    <div class="nazwa" style="font-size:12px;color:var(--tekst-slaby);text-transform:uppercase;letter-spacing:.4px">
+      Punkty w klasyfikacji</div>
+    <div style="font-size:34px;font-weight:650;letter-spacing:-1px;margin:4px 0">
+      {{ '{:,.0f}'.format(m.punkty.punkty_razem)|replace(',', ' ') }}</div>
+    <div class="notatka">
+      aktywność {{ '{:,.0f}'.format(m.punkty.punkty_za_aktywnosc)|replace(',', ' ') }}
+      · bonusy {{ '{:,.0f}'.format(m.punkty.punkty_bonusowe)|replace(',', ' ') }}
+    </div>
+    {{ wskaznik|safe }}
+    <div class="notatka">
+      Realizacja normy: <strong>{{ m.realizacja_normy_proc }}%</strong>
+    </div>
+  </div>
+</div>
+
+<div class="karta">
+  <h2>Klasyfikacja — rozbicie punktów</h2>
+  {% if m.punkty.kompletnosc_proc < 100 %}
+    <div class="mala-grupa">
+      Uzupełnionych wskaźników: {{ m.punkty.kompletnosc_proc }}%.
+      Brakujące liczą się jako zero, więc wynik jest zaniżony do czasu
+      uzupełnienia danych z pozostałych modułów CRM.
+    </div>
+  {% endif %}
+  <div class="przewijane">
+    <table>
+      <thead>
+        <tr><th>Kod</th><th>Wskaźnik</th><th class="liczba">Ile</th>
+            <th class="liczba">Stawka</th><th class="liczba">Punkty</th><th>Źródło</th></tr>
+      </thead>
+      <tbody>
+      {% for poz in m.punkty.pozycje %}
+        <tr>
+          <td><code>{{ poz.kod }}</code></td>
+          <td>{{ poz.nazwa }}</td>
+          <td class="liczba">{{ '—' if poz.brak_danych else poz.ile|round(0)|int }}</td>
+          <td class="liczba">{{ poz.stawka }}</td>
+          <td class="liczba"><strong>{{ poz.punkty|round(0)|int }}</strong></td>
+          <td>
+            {% if poz.kod in wpisane %}<span class="odznaka neutralna">wpisane ręcznie</span>
+            {% elif poz.zrodlo == 'auto' %}<span class="odznaka dobra">z eksportu</span>
+            {% else %}<span class="odznaka srednia">do wpisania</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Bonusy</h3>
+  <div class="przewijane">
+    <table>
+      <thead><tr><th>Bonus</th><th class="liczba">Wynik</th><th class="liczba">Próg</th>
+                 <th class="liczba">Punkty</th></tr></thead>
+      <tbody>
+      {% for b in m.punkty.bonusy %}
+        <tr>
+          <td>{{ b.nazwa }}</td>
+          <td class="liczba">
+            {% if b.brak_danych %}<span class="notatka">brak danych</span>
+            {% else %}{{ b.udzial_proc }}%{% endif %}
+          </td>
+          <td class="liczba">{{ '>' ~ b.prog_proc ~ '%' if b.prog_proc else '—' }}</td>
+          <td class="liczba">
+            {% if b.przyznany %}<span class="odznaka dobra">+{{ b.punkty }}</span>
+            {% else %}<span class="odznaka neutralna">0</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="karta">
+  <h2>Uzupełnij wskaźniki za okres {{ okres.klucz }}</h2>
+  <p class="notatka">Liczniki, których nie ma w eksporcie „Analiza Działań i Spotkań”
+    (notizie, incarichi, rapporti). Puste pole znaczy „nie wiem” i tak jest pokazywane —
+    to nie to samo co zero. Wpisana wartość ma pierwszeństwo przed wyliczoną z aktywności.</p>
+  <form method="post" action="{{ url_for('zapisz_wskazniki', klucz=p.klucz) }}">
+    <input type="hidden" name="okres" value="{{ okres.typ }}">
+    <input type="hidden" name="klucz" value="{{ okres.klucz }}">
+    <div class="pola">
+      {% for w in wskazniki_do_wpisania %}
+        <div>
+          <label for="w-{{ w.kod }}">{{ w.kod }} — {{ w.nazwa }}</label>
+          <input type="text" inputmode="decimal" id="w-{{ w.kod }}" name="w_{{ w.kod }}"
+                 value="{{ wpisane.get(w.kod, '')|round(0)|int if w.kod in wpisane else '' }}"
+                 placeholder="{{ licznosci.get(w.kod, '')|round(0)|int if w.kod in licznosci else '—' }}">
+        </div>
+      {% endfor %}
+      <div><button type="submit">Zapisz wskaźniki</button></div>
+    </div>
+  </form>
+</div>
+
+{% if grupy %}
+  <div class="karta">
+    <h2>Na tle innych na tym samym stanowisku</h2>
+    {% for g in grupy %}
+      <div class="porownanie">
+        <h3>{{ g.nazwa }} <span class="rola">· {{ g.liczebnosc }} os. w grupie</span></h3>
+        {% if not g.wiarygodne %}
+          <div class="mala-grupa">Grupa jest za mała na wnioski statystyczne —
+            traktuj to jako orientację, nie ocenę.</div>
+        {% endif %}
+        <div class="przewijane">
+          <table>
+            <thead>
+              <tr>
+                <th>Wskaźnik</th><th class="liczba">Ta osoba</th>
+                <th class="liczba">Mediana grupy</th><th class="liczba">Różnica</th>
+                <th>Pozycja w grupie</th><th>Ocena</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for pole, d in g.pola.items() %}
+              <tr>
+                <td>{{ d.etykieta }}</td>
+                <td class="liczba"><strong>{{ d.moja }}</strong></td>
+                <td class="liczba">{{ d.mediana_grupy }}</td>
+                <td class="liczba">{{ '+' if d.delta > 0 }}{{ d.delta }}</td>
+                <td>{{ pasek(d.moja, d.mediana_grupy, d.min, d.max, d.wyzej_lepiej)|safe }}</td>
+                <td>
+                  {% if d.ocena == 'powyżej grupy' %}<span class="odznaka dobra">{{ d.ocena }}</span>
+                  {% elif d.ocena == 'poniżej grupy' %}<span class="odznaka slaba">{{ d.ocena }}</span>
+                  {% else %}<span class="odznaka neutralna">{{ d.ocena }}</span>{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<div class="siatka">
+  <div class="karta">
+    <h2>Rozkład godzinowy</h2>
+    {{ wykres_godzin|safe }}
+    <p class="notatka">Praca w godz. 16–20: <strong>{{ m.praca_w_zlotych_godzinach_proc }}%</strong>
+      · dzień {{ m.pierwsza_aktywnosc }}–{{ m.ostatnia_aktywnosc }}
+      ({{ m.rozpietosc_dnia_h }} h, {{ m.aktywnosci_na_godzine }} akt./h)</p>
+  </div>
+  <div class="karta">
+    <h2>Co wyszło z kontaktów</h2>
+    {{ wykres_wynikow|safe }}
+  </div>
+</div>
+
+{% if wykres_dni %}
+  <div class="karta">
+    <h2>Aktywność dzień po dniu</h2>
+    {{ wykres_dni|safe }}
+    {% if m.dni_bez_aktywnosci %}
+      <p class="notatka">Dni roboczych bez żadnego wpisu w CRM: <strong>{{ m.dni_bez_aktywnosci }}</strong></p>
+    {% endif %}
+  </div>
+{% endif %}
+
+{% if trend %}
+  <div class="karta">
+    <h2>Trend względem poprzedniego okresu</h2>
+    <div class="przewijane">
+      <table>
+        <thead><tr><th>Wskaźnik</th><th class="liczba">Teraz</th><th class="liczba">Poprzednio</th><th>Zmiana</th></tr></thead>
+        <tbody>
+        {% for pole, d in trend.items() %}
+          <tr>
+            <td>{{ pole.replace('_', ' ')|capitalize }}</td>
+            <td class="liczba">{{ d.teraz }}</td>
+            <td class="liczba">{{ d.poprzednio }}</td>
+            <td>{{ mk.zmiana(d) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+
+{% if alerty %}
+  <div class="karta">
+    <h2>Alerty</h2>
+    {% for a in alerty %}<div class="alert">{{ a }}</div>{% endfor %}
+  </div>
+{% endif %}
+
+<div class="karta">
+  <h2>Ocena AI</h2>
+  {% if ocena %}
+    <p><strong>Podsumowanie.</strong> {{ ocena.podsumowanie }}</p>
+    {% if ocena.na_tle_grupy %}<p><strong>Na tle grupy.</strong> {{ ocena.na_tle_grupy }}</p>{% endif %}
+    <div class="siatka">
+      <div>
+        <h3>Mocne strony</h3>
+        <ul class="lista-czysta">{% for x in ocena.mocne_strony %}<li>{{ x }}</li>{% endfor %}</ul>
+      </div>
+      <div>
+        <h3>Do poprawy</h3>
+        <ul class="lista-czysta">{% for x in ocena.do_poprawy %}<li>{{ x }}</li>{% endfor %}</ul>
+      </div>
+    </div>
+    <h3>Plan na następny okres</h3>
+    <ol>{% for x in ocena.plan_na_nastepny_okres %}<li>{{ x }}</li>{% endfor %}</ol>
+    {% if ocena.pytania_na_1n1 %}
+      <h3>Pytania na 1:1</h3>
+      <ul class="lista-czysta">{% for x in ocena.pytania_na_1n1 %}<li>{{ x }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if ocena.ryzyka %}
+      <h3>Ryzyka</h3>
+      {% for x in ocena.ryzyka %}<div class="alert">{{ x }}</div>{% endfor %}
+    {% endif %}
+    <p class="notatka" style="margin-top:14px">
+      Ocena wygenerowana przez model AI. Zanim trafi do pracownika, musi ją zaakceptować przełożony.</p>
+  {% else %}
+    <p class="pusto">Dla tego okresu nie ma jeszcze oceny opisowej.
+      Liczby powyżej są kompletne i nie wymagają modelu.</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('generuj_ocene', klucz=p.klucz) }}" style="margin-top:10px">
+    <input type="hidden" name="okres" value="{{ okres.typ }}">
+    <input type="hidden" name="klucz" value="{{ okres.klucz }}">
+    <button type="submit">{{ 'Wygeneruj ponownie' if ocena else 'Wygeneruj ocenę AI' }}</button>
+    <a class="przycisk wtorny" href="{{ url_for('raport_md', klucz=p.klucz) }}{{ mk.q(okres) }}">Pobierz raport (.md)</a>
+  </form>
+</div>
+
+{% if leady %}
+  <div class="karta">
+    <h2>Do dopilnowania — leady i sygnały</h2>
+    <div class="przewijane">
+      <table>
+        <thead><tr><th>Kiedy</th><th>Adres</th><th>Typ</th><th>Notatka</th></tr></thead>
+        <tbody>
+        {% for a in leady %}
+          <tr>
+            <td>{{ a.data.strftime('%d.%m %H:%M') }}</td>
+            <td>{{ a.budynek }}{% if a.lokal %} / {{ a.lokal }}{% endif %}</td>
+            <td>{% if a.wynik == 'lead' %}<span class="odznaka dobra">lead</span>
+                {% else %}<span class="odznaka neutralna">sygnał</span>{% endif %}</td>
+            <td>{{ a.notatka }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+
+{% if rynek %}
+  <div class="karta">
+    <h2>Wiedza rynkowa zebrana w okresie</h2>
+    <ul class="lista-czysta">
+      {% for a in rynek %}
+        <li><strong>{{ a.budynek }} {{ a.lokal }}</strong> — {{ a.notatka }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
+{% endif %}
+
+<div class="karta">
+  <h2>Pamięć agenta</h2>
+  <p class="notatka">Ustalenia z 1:1 i zalecenia. Trafiają do promptu przy następnym
+    raporcie, więc agent AI wie, co już z tą osobą uzgodniono.</p>
+  <form method="post" action="{{ url_for('dodaj_pamiec', klucz=p.klucz) }}" style="margin:12px 0">
+    <input type="hidden" name="okres" value="{{ okres.typ }}">
+    <input type="hidden" name="klucz" value="{{ okres.klucz }}">
+    <div class="pola">
+      <div style="grid-column: span 2">
+        <label for="tresc">Nowy wpis</label>
+        <input type="text" id="tresc" name="tresc"
+               placeholder="np. Ustalone na 1:1: wizytówka przy każdej otwartej rozmowie">
+      </div>
+      <div>
+        <label for="typ">Rodzaj</label>
+        <select id="typ" name="typ">
+          <option value="ustalenie_1n1">ustalenie z 1:1</option>
+          <option value="cel">cel</option>
+          <option value="obserwacja">obserwacja</option>
+          <option value="zalecenie">zalecenie</option>
+        </select>
+      </div>
+      <div><button type="submit">Dodaj</button></div>
+    </div>
+  </form>
+  {% if pamiec %}
+    <ul class="lista-czysta">
+      {% for w in pamiec %}
+        <li><span class="odznaka neutralna">{{ w.typ }}</span>
+          {{ w.tresc }} <span class="notatka">· {{ w.data[:10] }}</span></li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="pusto">Pusto. Pierwszy wpis pojawi się tu po 1:1 albo po ocenie AI.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

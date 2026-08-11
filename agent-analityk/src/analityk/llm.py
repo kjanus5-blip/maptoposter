@@ -12,7 +12,7 @@ import re
 from typing import Any
 
 from .models import Activity
-from .profiles import Profil
+from .org import Pracownik
 from .prompts import (
     SYSTEM_ANALITYK,
     SYSTEM_KLASYFIKATOR,
@@ -57,7 +57,7 @@ def _wytnij_json(tekst: str) -> Any:
 
 
 def ocena_okresu(
-    profil: Profil,
+    profil: Pracownik,
     typ_okresu: str,
     klucz_okresu: str,
     metryki: dict,
@@ -68,11 +68,13 @@ def ocena_okresu(
     model: str = MODEL_DOMYSLNY,
     max_notatek: int = 120,
     tylko_prompt: bool = False,
+    porownania: str = "",
 ) -> dict | str:
     """Zwraca ocenę jako dict. Z `tylko_prompt=True` zwraca sam prompt (podgląd/koszt 0)."""
     notatki = [a.notatka for a in aktywnosci if a.notatka][:max_notatek]
     prompt = zbuduj_prompt(
-        profil, typ_okresu, klucz_okresu, metryki, trend, ostrzezenia, pamiec, notatki
+        profil, typ_okresu, klucz_okresu, metryki, trend, ostrzezenia, pamiec,
+        notatki, porownania,
     )
     if tylko_prompt:
         return prompt

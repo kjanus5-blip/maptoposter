@@ -1,0 +1,31 @@
+{% macro odznaka(wartosc, prog_dobry=70, prog_sredni=45, sufiks='') %}
+  {%- if wartosc is none -%}
+    <span class="odznaka neutralna">—</span>
+  {%- elif wartosc >= prog_dobry -%}
+    <span class="odznaka dobra">{{ wartosc }}{{ sufiks }}</span>
+  {%- elif wartosc >= prog_sredni -%}
+    <span class="odznaka srednia">{{ wartosc }}{{ sufiks }}</span>
+  {%- else -%}
+    <span class="odznaka slaba">{{ wartosc }}{{ sufiks }}</span>
+  {%- endif -%}
+{% endmacro %}
+
+{% macro zmiana(dane) %}
+  {%- if dane and dane.zmiana > 0 -%}
+    <span class="odznaka dobra">▲ +{{ dane.zmiana }}</span>
+  {%- elif dane and dane.zmiana < 0 -%}
+    <span class="odznaka slaba">▼ {{ dane.zmiana }}</span>
+  {%- else -%}
+    <span class="odznaka neutralna">bez zmian</span>
+  {%- endif -%}
+{% endmacro %}
+
+{% macro kafel(nazwa, wartosc, opis='') %}
+  <div class="kafel">
+    <div class="nazwa">{{ nazwa }}</div>
+    <div class="wartosc">{{ wartosc }}</div>
+    {% if opis %}<div class="opis">{{ opis }}</div>{% endif %}
+  </div>
+{% endmacro %}
+
+{% macro q(okres) %}?okres={{ okres.typ }}&klucz={{ okres.klucz }}{% endmacro %}

@@ -1,0 +1,166 @@
+{% extends "baza.html" %}
+{% import "makra.html" as mk %}
+{% block tytul %}Pulpit — Agent Analityk{% endblock %}
+
+{% block tresc %}
+
+<div class="naglowek-strony">
+  <h1>Pulpit</h1>
+  <span class="podtytul">{{ okres.etykieta }}</span>
+</div>
+
+{% if lacznie.pusty %}
+  <div class="karta">
+    <p class="pusto">Brak aktywności w tym okresie.
+      <a href="{{ url_for('wczytaj') }}">Wczytaj eksport z CRM</a>,
+      żeby zobaczyć dane.</p>
+  </div>
+{% else %}
+
+<div class="kafle">
+  {{ mk.kafel('Aktywności', lacznie.liczba_aktywnosci,
+             'średnio ' ~ lacznie.srednio_dziennie ~ '/dzień') }}
+  {{ mk.kafel('Rozmowy', lacznie.rozmowy_odbyte,
+             'dotarcie ' ~ lacznie.wskaznik_dotarcia_proc ~ '%') }}
+  {{ mk.kafel('Leady', lacznie.leady, lacznie.sygnaly ~ ' sygnałów dodatkowo') }}
+  {{ mk.kafel('Follow-up', lacznie.follow_up_proc ~ '%',
+             'materiał lub kolejny krok') }}
+  {{ mk.kafel('Jakość notatek', lacznie.notatki_merytoryczne_proc ~ '%',
+             'średnio ' ~ lacznie.srednia_dlugosc_notatki ~ ' znaków') }}
+  {{ mk.kafel('Indeks jakości', lacznie.indeks_jakosci ~ '/100', 'ilość + jakość kontaktu') }}
+</div>
+
+{% if wykres_dni %}
+  <div class="karta" style="margin-top:18px">
+    <h2>Aktywność dzień po dniu</h2>
+    {{ wykres_dni|safe }}
+  </div>
+{% endif %}
+
+{% if biura %}
+  <div class="karta">
+    <h2>Biura</h2>
+    <div class="przewijane">
+      <table>
+        <thead>
+          <tr>
+            <th class="miejsce">#</th><th>Biuro</th>
+            <th class="liczba">Osób</th><th class="liczba">Aktywności</th>
+            <th class="liczba">Na osobę</th><th class="liczba">Leady</th>
+            <th class="liczba">Dotarcie</th><th class="liczba">Follow-up</th>
+            <th class="liczba">Indeks</th><th class="liczba">Punkty</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for poz in biura %}
+          {% set b = poz.metryki %}
+          <tr>
+            <td class="miejsce">{{ poz.miejsce }}</td>
+            <td>
+              <a href="{{ url_for('widok_biura', biuro_id=poz.biuro.id) }}{{ mk.q(okres) }}">
+                {{ poz.biuro.nazwa }}</a>
+              {% if poz.biuro.miasto %}<span class="rola"> · {{ poz.biuro.miasto }}</span>{% endif %}
+            </td>
+            {% if b.pusty %}
+              <td class="liczba">{{ b.liczba_pracownikow }}</td>
+              <td class="liczba" colspan="7"><span class="notatka">brak aktywności w okresie</span></td>
+            {% else %}
+              <td class="liczba">{{ b.liczba_pracujacych }}/{{ b.liczba_pracownikow }}</td>
+              <td class="liczba">{{ b.liczba_aktywnosci }}</td>
+              <td class="liczba">{{ (b.liczba_aktywnosci / b.liczba_pracujacych)|round(1) }}</td>
+              <td class="liczba">{{ b.leady }}</td>
+              <td class="liczba">{{ b.wskaznik_dotarcia_proc }}%</td>
+              <td class="liczba">{{ b.follow_up_proc }}%</td>
+              <td class="liczba">{{ mk.odznaka(b.indeks_jakosci) }}</td>
+              <td class="liczba"><strong>{{ '{:,.0f}'.format(b.punkty_razem or 0)|replace(',', ' ') }}</strong></td>
+            {% endif %}
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+
+<div class="karta">
+  <h2>Pracownicy</h2>
+  <div class="przewijane">
+    <table>
+      <thead>
+        <tr>
+          <th class="miejsce">#</th><th>Pracownik</th><th>Biuro</th>
+          <th class="liczba">Aktywności</th><th class="liczba">Norma</th>
+          <th class="liczba">Leady</th><th class="liczba">Dotarcie</th>
+          <th class="liczba">Notatki</th><th class="liczba">Follow-up</th>
+          <th class="liczba">Indeks</th><th class="liczba">Punkty</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for p, met, _punkty in ranking %}
+        <tr>
+          <td class="miejsce">{{ loop.index }}</td>
+          <td>
+            <a href="{{ url_for('widok_pracownika', klucz=p.klucz) }}{{ mk.q(okres) }}">
+              {{ p.imie_nazwisko }}</a>
+            <div class="rola">{{ nazwy_rol[p.rola] }}</div>
+          </td>
+          <td>
+            {% if p.biuro_id %}
+              <a href="{{ url_for('widok_biura', biuro_id=p.biuro_id) }}{{ mk.q(okres) }}">{{ p.biuro_nazwa }}</a>
+            {% else %}<span class="notatka">bez biura</span>{% endif %}
+          </td>
+          <td class="liczba">{{ met.liczba_aktywnosci }}</td>
+          <td class="liczba">
+            {% if met.realizacja_normy_proc is not none %}
+              {{ mk.odznaka(met.realizacja_normy_proc, 90, 70, '%') }}
+            {% else %}—{% endif %}
+          </td>
+          <td class="liczba">{{ met.leady }}</td>
+          <td class="liczba">{{ met.wskaznik_dotarcia_proc }}%</td>
+          <td class="liczba">{{ met.notatki_merytoryczne_proc }}%</td>
+          <td class="liczba">{{ met.follow_up_proc }}%</td>
+          <td class="liczba">{{ mk.odznaka(met.indeks_jakosci) }}</td>
+          <td class="liczba"><strong>{{ '{:,.0f}'.format(met.punkty_razem or 0)|replace(',', ' ') }}</strong></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if bez_wynikow %}
+    <p class="notatka" style="margin-top:12px">
+      Bez aktywności w tym okresie:
+      {% for p in bez_wynikow %}
+        <a href="{{ url_for('widok_pracownika', klucz=p.klucz) }}{{ mk.q(okres) }}">{{ p.imie_nazwisko }}</a>{{ "," if not loop.last }}
+      {% endfor %}
+    </p>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if nieprzypisani %}
+  <div class="karta">
+    <h2>Do przypisania</h2>
+    <p class="notatka">Te osoby pojawiły się w danych, ale nie mają biura ani roli —
+      bez tego nie da się ich porównywać z właściwą grupą.</p>
+    <p>
+      {% for p in nieprzypisani %}<span class="odznaka srednia">{{ p.imie_nazwisko }}</span> {% endfor %}
+    </p>
+    <p style="margin-top:12px">
+      <a class="przycisk" href="{{ url_for('organizacja') }}">Przypisz do biur</a>
+    </p>
+  </div>
+{% endif %}
+
+{% if ostrzezenia %}
+  <div class="karta">
+    <h2>Alerty ({{ ostrzezenia|length }})</h2>
+    {% for p, tresc in ostrzezenia %}
+      <div class="alert">
+        <strong><a href="{{ url_for('widok_pracownika', klucz=p.klucz) }}{{ mk.q(okres) }}">{{ p.imie_nazwisko }}</a></strong>
+        <span>{{ tresc }}</span>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% endblock %}

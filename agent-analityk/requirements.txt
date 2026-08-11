@@ -2,3 +2,4 @@ pdfplumber>=0.11      # parsowanie eksportu PDF z CRM
 PyYAML>=6.0           # profile pracowników
 anthropic>=0.40       # opcjonalnie: ocena i klasyfikacja przez Claude
 openpyxl>=3.1         # opcjonalnie: eksporty XLSX
+Flask>=3.0            # panel WWW

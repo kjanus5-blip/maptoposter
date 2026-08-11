@@ -1,0 +1,149 @@
+{% extends "baza.html" %}
+{% import "makra.html" as mk %}
+{% block tytul %}Biura i ludzie — Agent Analityk{% endblock %}
+{% block pasek_okresu %}{% endblock %}
+
+{% block tresc %}
+
+<div class="naglowek-strony">
+  <h1>Biura i ludzie</h1>
+  <span class="podtytul">Struktura decyduje o tym, z kim porównywany jest każdy pracownik.</span>
+</div>
+
+<div class="karta">
+  <h2>Dodaj biuro</h2>
+  <form method="post" action="{{ url_for('zapisz_biuro') }}">
+    <div class="pola">
+      <div>
+        <label for="nazwa">Nazwa biura *</label>
+        <input type="text" id="nazwa" name="nazwa" required placeholder="np. Biuro Centrum">
+      </div>
+      <div>
+        <label for="miasto">Miasto</label>
+        <input type="text" id="miasto" name="miasto" placeholder="np. Bydgoszcz">
+      </div>
+      <div>
+        <label for="adres">Adres</label>
+        <input type="text" id="adres" name="adres" placeholder="np. Dworcowa 12">
+      </div>
+      <div><button type="submit">Dodaj biuro</button></div>
+    </div>
+  </form>
+</div>
+
+{% if biura %}
+  <div class="karta">
+    <h2>Biura ({{ biura|length }})</h2>
+    <div class="przewijane">
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Nazwa</th><th>Miasto</th><th>Adres</th>
+              <th class="liczba">Osób</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for b in biura %}
+          <tr>
+            <td class="miejsce">{{ b.id }}</td>
+            <td><a href="{{ url_for('widok_biura', biuro_id=b.id) }}">{{ b.nazwa }}</a></td>
+            <td>{{ b.miasto or '—' }}</td>
+            <td>{{ b.adres or '—' }}</td>
+            <td class="liczba">{{ liczby[b.id] }}</td>
+            <td>
+              <form method="post" action="{{ url_for('usun_biuro', biuro_id=b.id) }}"
+                    onsubmit="return confirm('Usunąć biuro „{{ b.nazwa }}”? Pracownicy zostaną bez przypisania, dane aktywności pozostaną nietknięte.')">
+                <button type="submit" class="groźny">Usuń</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% else %}
+  <div class="karta">
+    <p class="pusto">Nie ma jeszcze żadnego biura. Dodaj pierwsze powyżej —
+      bez biur porównania ograniczają się do całej sieci.</p>
+  </div>
+{% endif %}
+
+<div class="karta">
+  <h2>Role — czym się różnią</h2>
+  <ul class="lista-czysta">
+    {% for rola in role %}
+      <li><strong>{{ nazwy_rol[rola] }}</strong> — {{ opisy_rol[rola] }}</li>
+    {% endfor %}
+  </ul>
+  <p class="notatka" style="margin-top:10px">
+    Rola ustawia domyślne normy i wyznacza grupę porównawczą. Koordynatorka z 25
+    kontaktami dziennie nie jest „gorsza” od agenta z 40 — jest porównywana
+    z innymi koordynatorkami.
+  </p>
+</div>
+
+<div class="karta">
+  <h2>Pracownicy ({{ pracownicy|length }})</h2>
+  <p class="notatka">Osoby pojawiają się tu automatycznie po wczytaniu eksportu.
+    Uzupełnij biuro, rolę i staż — od tego zależy, jak agent AI ocenia ich pracę.</p>
+
+  {% for p in pracownicy %}
+    <form method="post" action="{{ url_for('zapisz_pracownika', klucz=p.klucz) }}"
+          style="border-top:1px solid var(--ramka); padding:14px 0">
+      <div class="pola">
+        <div>
+          <label for="nazwa-{{ p.klucz }}">Imię i nazwisko</label>
+          <input type="text" id="nazwa-{{ p.klucz }}" name="imie_nazwisko" value="{{ p.imie_nazwisko }}">
+        </div>
+        <div>
+          <label for="biuro-{{ p.klucz }}">Biuro</label>
+          <select id="biuro-{{ p.klucz }}" name="biuro_id">
+            <option value="">— bez biura —</option>
+            {% for b in biura %}
+              <option value="{{ b.id }}" {{ 'selected' if b.id == p.biuro_id }}>{{ b.nazwa }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="rola-{{ p.klucz }}">Rola</label>
+          <select id="rola-{{ p.klucz }}" name="rola">
+            {% for r in role %}
+              <option value="{{ r }}" {{ 'selected' if r == p.rola }}>{{ nazwy_rol[r] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="staz-{{ p.klucz }}">Staż (mies.)</label>
+          <input type="number" id="staz-{{ p.klucz }}" name="staz_miesiace" min="0"
+                 value="{{ p.staz_miesiace }}">
+        </div>
+        <div>
+          <label for="norma-{{ p.klucz }}">Norma dzienna</label>
+          <input type="number" id="norma-{{ p.klucz }}" name="norma_dzienna" min="0"
+                 value="{{ p.normy.get('dzien', {}).get('aktywnosci', '') }}"
+                 placeholder="domyślna z roli">
+        </div>
+        <div>
+          <label for="obszar-{{ p.klucz }}">Teren (po przecinku)</label>
+          <input type="text" id="obszar-{{ p.klucz }}" name="obszar"
+                 value="{{ p.obszar_farmingu|join(', ') }}" placeholder="np. Dworcowa, Kniaziewicza">
+        </div>
+        <div>
+          <label for="uwagi-{{ p.klucz }}">Uwagi przełożonego</label>
+          <input type="text" id="uwagi-{{ p.klucz }}" name="uwagi" value="{{ p.uwagi_managera }}">
+        </div>
+        <div>
+          <label for="aktywny-{{ p.klucz }}">Status</label>
+          <select id="aktywny-{{ p.klucz }}" name="aktywny">
+            <option value="1" {{ 'selected' if p.aktywny }}>pracuje</option>
+            <option value="0" {{ 'selected' if not p.aktywny }}>nie pracuje</option>
+          </select>
+        </div>
+        <div><button type="submit">Zapisz</button></div>
+      </div>
+    </form>
+  {% else %}
+    <p class="pusto">Brak pracowników. <a href="{{ url_for('wczytaj') }}">Wczytaj eksport z CRM</a>.</p>
+  {% endfor %}
+</div>
+
+{% endblock %}
