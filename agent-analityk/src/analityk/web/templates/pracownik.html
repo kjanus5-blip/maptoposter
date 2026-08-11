@@ -83,6 +83,18 @@
     </table>
   </div>
 
+  {% if m.liczniki_operacyjne %}
+    <h3>Liczone, ale nie punktowane</h3>
+    <div class="udzialy">
+      {% for kod, dane in m.liczniki_operacyjne.items() %}
+        <div class="udzial-wiersz" style="grid-template-columns: 1fr auto">
+          <span class="udzial-etykieta">{{ dane.nazwa }}</span>
+          <span class="udzial-liczba"><strong>{{ dane.ile|round(0)|int }}</strong></span>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   <h3>Bonusy</h3>
   <div class="przewijane">
     <table>

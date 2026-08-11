@@ -38,6 +38,12 @@
           <td>
             {% if t.nieprzypisany %}
               <span class="odznaka slaba">nie liczy się</span>
+            {% elif t.warunkowy %}
+              {% for k in t.kody %}<span class="odznaka neutralna">{{ k }}</span> {% endfor %}
+              <div class="notatka">zależnie od warunku</div>
+            {% elif t.kod in ('TEL_WYKONANE', 'OFERTY') %}
+              <span class="odznaka neutralna">{{ t.kod }}</span>
+              <div class="notatka">liczone, bez punktów</div>
             {% else %}
               <span class="odznaka dobra">{{ t.kod }}</span>
             {% endif %}
@@ -48,10 +54,18 @@
               <input type="hidden" name="wzorzec" value="{{ (t.podtyp or t.kanal)|lower }}">
               <select name="kod">
                 <option value="">— nie licz —</option>
-                {% for w in wskazniki %}
-                  <option value="{{ w.kod }}" {{ 'selected' if w.kod == t.kod }}>
-                    {{ w.kod }} — {{ w.nazwa }} ({{ w.punkty }} pkt)</option>
-                {% endfor %}
+                <optgroup label="Punktowane">
+                  {% for w in wskazniki %}
+                    <option value="{{ w.kod }}" {{ 'selected' if w.kod == t.kod }}>
+                      {{ w.kod }} — {{ w.nazwa }} ({{ w.punkty }} pkt)</option>
+                  {% endfor %}
+                </optgroup>
+                <optgroup label="Liczone bez punktów">
+                  {% for w in liczniki %}
+                    <option value="{{ w.kod }}" {{ 'selected' if w.kod == t.kod }}>
+                      {{ w.kod }} — {{ w.nazwa }}</option>
+                  {% endfor %}
+                </optgroup>
               </select>
               <button type="submit" class="wtorny">Zapisz</button>
             </form>
@@ -69,15 +83,20 @@
   <h2>Wszystkie reguły mapowania</h2>
   <p class="notatka">Reguła dopasowuje się, gdy nazwa typu <em>zawiera</em> podany
     fragment. Krótkie kody (do 4 znaków, np. <code>ACQ</code>, <code>VEN</code>)
-    muszą wystąpić jako osobne słowo, żeby nie łapały się w środku innych wyrazów.</p>
+    muszą wystąpić jako osobne słowo, żeby nie łapały się w środku innych wyrazów.
+    <strong>Warunek</strong> to dodatkowy tekst szukany w całym wierszu — dzięki
+    temu <code>ACQ</code> idzie na NT15, ale <code>ACQ</code> z „wynajem” gdzieś
+    w wierszu idzie na NT16. Reguły z warunkiem sprawdzane są pierwsze.</p>
   <div class="przewijane">
     <table>
-      <thead><tr><th>Fragment nazwy</th><th>Wskaźnik</th><th>Opis</th>
+      <thead><tr><th>Fragment nazwy</th><th>Warunek</th><th>Wskaźnik</th><th>Opis</th>
                  <th>Skąd</th><th></th></tr></thead>
       <tbody>
       {% for wzorzec, dane in mapowanie.items() %}
         <tr>
-          <td><code>{{ wzorzec }}</code></td>
+          <td><code>{{ wzorzec.split('|')[0] }}</code></td>
+          <td>{% if dane.warunek %}<code>{{ dane.warunek }}</code>
+              {% else %}<span class="notatka">—</span>{% endif %}</td>
           <td><span class="odznaka neutralna">{{ dane.kod }}</span></td>
           <td class="notatka">{{ dane.opis }}</td>
           <td>
@@ -107,10 +126,22 @@
       <div>
         <label for="kod">Wskaźnik</label>
         <select id="kod" name="kod">
-          {% for w in wskazniki %}
-            <option value="{{ w.kod }}">{{ w.kod }} — {{ w.nazwa }} ({{ w.punkty }} pkt)</option>
-          {% endfor %}
+          <optgroup label="Punktowane">
+            {% for w in wskazniki %}
+              <option value="{{ w.kod }}">{{ w.kod }} — {{ w.nazwa }} ({{ w.punkty }} pkt)</option>
+            {% endfor %}
+          </optgroup>
+          <optgroup label="Liczone bez punktów">
+            {% for w in liczniki %}
+              <option value="{{ w.kod }}">{{ w.kod }} — {{ w.nazwa }}</option>
+            {% endfor %}
+          </optgroup>
         </select>
+      </div>
+      <div>
+        <label for="warunek">Warunek (opcjonalnie)</label>
+        <input type="text" id="warunek" name="warunek" placeholder="np. wynajem">
+        <span class="notatka">reguła zadziała tylko, gdy wiersz zawiera ten tekst</span>
       </div>
       <div>
         <label for="opis">Opis (opcjonalnie)</label>

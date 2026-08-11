@@ -14,11 +14,14 @@ sys.path.insert(0, str(KORZEN / "src"))
 
 from analityk.models import Activity, zbuduj_id  # noqa: E402
 from analityk.org import Biuro, Pracownik  # noqa: E402
+from analityk.org import ROLA_AGENT  # noqa: E402
 from analityk.punktacja import (  # noqa: E402
     MAPOWANIE_DOMYSLNE,
+    dopisz_punkty,
     licznosci_okresu,
     licznosci_z_aktywnosci,
     niezmapowane_typy,
+    punkty_pracownika,
 )
 from analityk.store import Baza  # noqa: E402
 
@@ -77,7 +80,9 @@ class TestMapowanieTypow(unittest.TestCase):
             [akt("RICERCA", i=i) for i in range(5)]
             + [akt("Telefon z propozycją dzierżawy", "telefon", i=10 + i) for i in range(3)]
         )
-        self.assertEqual(licznosci_z_aktywnosci(aktywnosci), {"IM3": 5, "R4": 3})
+        # telefony nie są punktowane — idą do licznika operacyjnego
+        self.assertEqual(licznosci_z_aktywnosci(aktywnosci),
+                         {"IM3": 5, "TEL_WYKONANE": 3})
 
     def test_krotkie_kody_tylko_jako_osobne_slowo(self):
         """„ven” nie może łapać się w środku innego wyrazu."""
@@ -101,11 +106,78 @@ class TestMapowanieTypow(unittest.TestCase):
     def test_lista_niezmapowanych(self):
         typy = [
             {"kanal": "bezposredni", "podtyp": "RICERCA", "n": 38},
-            {"kanal": "telefon", "podtyp": "Tel ogólny", "n": 4},
+            {"kanal": "bezposredni", "podtyp": "Zupełnie Nowy Typ", "n": 4},
         ]
-        mapowanie = {w: kod for w, (kod, _) in MAPOWANIE_DOMYSLNE.items()}
-        braki = niezmapowane_typy(typy, mapowanie)
-        self.assertEqual([t["podtyp"] for t in braki], ["Tel ogólny"])
+        braki = niezmapowane_typy(typy, MAPOWANIE_DOMYSLNE)
+        self.assertEqual([t["podtyp"] for t in braki], ["Zupełnie Nowy Typ"])
+
+
+class TestRegulyZWarunkiem(unittest.TestCase):
+    """ACQ idzie na NT15 albo NT16 zależnie od tego, czy wiersz mówi o wynajmie."""
+
+    def test_acq_sprzedaz_kontra_wynajem(self):
+        sprzedaz = akt("ACQ", i=1)
+        sprzedaz.powiazanie = "Mieszkanie sprzedaż Dworcowa 7"
+        wynajem = akt("ACQ", i=2)
+        wynajem.powiazanie = "Mieszkanie wynajem Dworcowa 9"
+        licznosci = licznosci_z_aktywnosci([sprzedaz, wynajem])
+        self.assertEqual(licznosci, {"NT15": 1, "NT16": 1})
+
+    def test_regula_z_warunkiem_ma_pierwszenstwo(self):
+        mapowanie = {
+            "acq": {"kod": "NT15", "warunek": ""},
+            "acq|wynajem": {"kod": "NT16", "warunek": "wynajem"},
+        }
+        a = akt("ACQ", i=3)
+        a.notatka = "Umowa na wynajem, klient zdecydowany"
+        self.assertEqual(licznosci_z_aktywnosci([a], mapowanie), {"NT16": 1})
+
+    def test_warunek_szukany_w_calym_wierszu(self):
+        """Nie wiemy, w której kolumnie CRM trzyma rozróżnienie — szukamy wszędzie."""
+        mapowanie = {"acq|w": {"kod": "NT16", "warunek": "wynajem"}}
+        w_notatce = akt("ACQ", i=4)
+        w_notatce.notatka = "klient pyta o wynajem"
+        w_powiazaniu = akt("ACQ", i=5)
+        w_powiazaniu.powiazanie = "wynajem Kolejowa 4"
+        self.assertEqual(licznosci_z_aktywnosci([w_notatce, w_powiazaniu], mapowanie),
+                         {"NT16": 2})
+
+    def test_ven_i_vm(self):
+        aktywnosci = [akt("VEN", i=1), akt("VEN telefoniczna", "telefon", 2),
+                      akt("V.M", i=3)]
+        self.assertEqual(licznosci_z_aktywnosci(aktywnosci), {"IN21": 2, "IN18": 1})
+
+
+class TestLicznikiOperacyjne(unittest.TestCase):
+    """Telefony są pracą, którą chcemy widzieć — ale klasyfikacja ich nie punktuje."""
+
+    def test_telefony_nie_daja_punktow(self):
+        aktywnosci = [
+            akt("Tel ogólny", "telefon", 1),
+            akt("Telefon z propozycją dzierżawy", "telefon", 2),
+            akt("Tel z bazy danych", "telefon", 3),
+        ]
+        licznosci = licznosci_z_aktywnosci(aktywnosci)
+        self.assertEqual(licznosci, {"TEL_WYKONANE": 3})
+
+        wynik = punkty_pracownika(licznosci, ROLA_AGENT)
+        self.assertEqual(wynik["punkty_razem"], 0)
+        self.assertNotIn("TEL_WYKONANE", {p["kod"] for p in wynik["pozycje"]})
+
+    def test_oferta_liczona_bez_punktow(self):
+        self.assertEqual(licznosci_z_aktywnosci([akt("Oferta", i=1)]), {"OFERTY": 1})
+
+    def test_liczniki_trafiaja_do_metryk(self):
+        with tempfile.TemporaryDirectory() as katalog:
+            baza = Baza(Path(katalog) / "t.db")
+            baza.zapisz_aktywnosci([akt("Tel ogólny", "telefon", i) for i in range(4)])
+            p = Pracownik(klucz="a", imie_nazwisko="A")
+            baza.zapisz_pracownika(p)
+            m = dopisz_punkty(baza, p, "dzien", "2026-08-10",
+                              baza.pobierz(pracownik="a"), {})
+            self.assertEqual(m["liczniki_operacyjne"]["TEL_WYKONANE"]["ile"], 4)
+            self.assertEqual(m["punkty_razem"], 0)
+            baza.zamknij()
 
 
 class TestKonfiguracjaWBazie(unittest.TestCase):
@@ -118,12 +190,12 @@ class TestKonfiguracjaWBazie(unittest.TestCase):
         self.katalog.cleanup()
 
     def test_wlasne_mapowanie_nadpisuje_domyslne(self):
-        self.baza.zapisz_aktywnosci([akt("Tel ogólny", "telefon", i=i) for i in range(4)])
+        self.baza.zapisz_aktywnosci([akt("Nietypowa akcja", i=i) for i in range(4)])
         self.assertEqual(licznosci_okresu(self.baza, "a", "dzien", "2026-08-10"), {})
 
-        self.baza.ustaw_mapowanie("tel ogólny", "R4", "telefon ogólny")
+        self.baza.ustaw_mapowanie("nietypowa akcja", "NO10", "spotkanie KIRON")
         self.assertEqual(
-            licznosci_okresu(self.baza, "a", "dzien", "2026-08-10"), {"R4": 4}
+            licznosci_okresu(self.baza, "a", "dzien", "2026-08-10"), {"NO10": 4}
         )
 
     def test_usuniecie_mapowania(self):

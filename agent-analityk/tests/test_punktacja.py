@@ -127,13 +127,19 @@ class TestLiczenieZAktywnosci(unittest.TestCase):
         aktywnosci = [akt("a", "RICERCA", godzina=g) for g in range(9, 14)]
         aktywnosci.append(akt("a", "Tel ogólny", "telefon", 15))
         licznosci = licznosci_z_aktywnosci(aktywnosci)
-        self.assertEqual(licznosci["IM3"], 5)      # tylko RICERCA
-        self.assertNotIn("R4", licznosci)
+        self.assertEqual(licznosci["IM3"], 5)              # tylko RICERCA
+        self.assertEqual(licznosci["TEL_WYKONANE"], 1)     # telefon osobno
 
-    def test_r4_z_telefonow_z_propozycja(self):
+    def test_telefony_ida_do_licznika_bez_punktow(self):
+        """Tel ogólny / z propozycją / z bazy to wykonane telefony, nie R4.
+
+        R4 („propozycje telefoniczne”) to wskaźnik koordynatorki i wchodzi
+        z innego eksportu — telefony agenta w terenie nie są punktowane.
+        """
         aktywnosci = [akt("a", "Telefon z propozycją dzierżawy", "telefon", g)
                       for g in range(9, 12)]
-        self.assertEqual(licznosci_z_aktywnosci(aktywnosci)["R4"], 3)
+        self.assertEqual(licznosci_z_aktywnosci(aktywnosci)["TEL_WYKONANE"], 3)
+        self.assertNotIn("R4", licznosci_z_aktywnosci(aktywnosci))
 
     def test_brak_ricerki_to_brak_wpisu_a_nie_zero(self):
         licznosci = licznosci_z_aktywnosci([akt("a", "Tel ogólny", "telefon")])

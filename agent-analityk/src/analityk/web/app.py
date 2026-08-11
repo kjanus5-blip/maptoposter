@@ -50,6 +50,9 @@ from ..metrics import (
 from ..models import WYNIK_INFO_RYNKOWE, WYNIK_LEAD, WYNIK_SYGNAL
 from ..org import NAZWY_ROL, OPIS_ROL, ROLE, Biuro
 from ..punktacja import (
+    LICZNIKI_OPERACYJNE,
+    _pasuje_wzorzec,
+    _reguly,
     MAPOWANIE_DOMYSLNE,
     WSKAZNIKI,
     WSKAZNIKI_POMOCNICZE,
@@ -428,24 +431,27 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
         b = baza()
         zapisane = b.mapowanie_typow()
         if not zapisane:                       # pierwsze wejście: zasiej domyślne
-            for wzorzec, (kod, opis) in MAPOWANIE_DOMYSLNE.items():
-                b.ustaw_mapowanie(wzorzec, kod, opis, zrodlo="domyslne")
+            for wzorzec, (kod, opis, warunek) in MAPOWANIE_DOMYSLNE.items():
+                b.ustaw_mapowanie(wzorzec, kod, opis, zrodlo="domyslne", warunek=warunek)
             zapisane = b.mapowanie_typow()
 
         typy = b.wystepujace_typy()
-        mapowanie = {w: dane["kod"] for w, dane in zapisane.items()}
-        braki = {(t["kanal"], t["podtyp"]) for t in niezmapowane_typy(typy, mapowanie)}
+        braki = {(t["kanal"], t["podtyp"]) for t in niezmapowane_typy(typy, zapisane)}
+        reguly = _reguly(zapisane)
         for t in typy:
             t["nieprzypisany"] = (t["kanal"], t["podtyp"]) in braki
-            t["kod"] = next(
-                (mapowanie[w] for w in mapowanie
-                 if w in f"{t['podtyp'] or ''} {t['kanal'] or ''}".lower()), ""
-            )
+            tekst = f"{t['podtyp'] or ''} {t['kanal'] or ''}".lower()
+            pasujace = [(kod, war) for wz, kod, war in reguly if _pasuje_wzorzec(tekst, wz)]
+            t["kod"] = pasujace[0][0] if pasujace else ""
+            # gdy typ trafia do różnych wskaźników zależnie od warunku, powiedz to wprost
+            t["warunkowy"] = len({k for k, _ in pasujace}) > 1
+            t["kody"] = sorted({k for k, _ in pasujace})
         return render_template(
             "typy.html",
             typy=typy,
             mapowanie=zapisane,
             wskazniki=WSKAZNIKI,
+            liczniki=LICZNIKI_OPERACYJNE,
             nieprzypisanych=len(braki),
         )
 
@@ -457,11 +463,15 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
         if not wzorzec:
             flash("Podaj fragment nazwy typu, np. „ricerca”.", "blad")
             return redirect(url_for("widok_typow"))
-        b.ustaw_mapowanie(wzorzec, kod, request.form.get("opis", ""))
-        flash(
-            f"Zapisano: „{wzorzec}” → {kod}." if kod
-            else f"Usunięto mapowanie dla „{wzorzec}”.", "ok",
-        )
+        warunek = (request.form.get("warunek") or "").strip()
+        klucz = f"{wzorzec.lower()}|{warunek.lower()}" if warunek else wzorzec.lower()
+        b.ustaw_mapowanie(klucz, kod, request.form.get("opis", ""), warunek=warunek)
+        if not kod:
+            flash(f"Usunięto regułę dla „{wzorzec}”.", "ok")
+        elif warunek:
+            flash(f"Zapisano: „{wzorzec}” + „{warunek}” → {kod}.", "ok")
+        else:
+            flash(f"Zapisano: „{wzorzec}” → {kod}.", "ok")
         return redirect(url_for("widok_typow"))
 
     @app.post("/tematy/<path:temat>/status")

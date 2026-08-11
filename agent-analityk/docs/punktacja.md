@@ -89,20 +89,44 @@ wszystkie typy występujące w Twoich danych wraz z licznością i tym, na jaki
 wskaźnik są przeliczane. Typ, którego nikt nie zmapował, dostaje czerwoną
 etykietę **„nie liczy się”** — nic nie ginie po cichu.
 
-Wstępnie ustawione reguły (do sprawdzenia i poprawienia):
+Ustawione reguły:
 
-| Fragment nazwy | Wskaźnik | Uwaga |
-|---|---|---|
-| `ricerca` | IM3 | potwierdzone na prawdziwym eksporcie |
-| `propozycj` | R4 | potwierdzone na prawdziwym eksporcie |
-| `acq`, `acquisizione` | NT15 | **do potwierdzenia** — nie wystąpiło w danych |
-| `aff` | NT16 | **do potwierdzenia** |
-| `ven` | REP17 | **do potwierdzenia**; VEN umówione (REP17) i wykonane (IN21) to dwa różne wskaźniki, więc prawdopodobnie potrzebne są dwie osobne reguły |
+| Fragment nazwy | Warunek | Wskaźnik | Punkty |
+|---|---|---|---|
+| `ricerca` | — | IM3 | 4 |
+| `acq`, `acquisizione` | — | NT15 | 100 |
+| `acq` | `wynajem` / `najem` / `affitto` | NT16 | 12,5 |
+| `aff` | — | NT16 | 12,5 |
+| `ven` (także „VEN telefoniczna”) | — | IN21 | 30 |
+| `v.m`, `vm`, `visita mensile` | — | IN18 | 30 |
+| `tel ogólny`, `propozycj`, `z bazy` | — | TEL_WYKONANE | **0 — nie punktowane** |
+| `oferta` | — | OFERTY | **0 — nie punktowane** |
 
 Reguła dopasowuje się, gdy nazwa typu *zawiera* podany fragment. Kody do
-czterech znaków (ACQ, AFF, VEN) muszą wystąpić jako osobne słowo, żeby nie
-łapały się w środku innych wyrazów. Jeden kontakt liczy się do jednego
-wskaźnika — pierwsza pasująca reguła wygrywa.
+czterech znaków (ACQ, AFF, VEN, V.M) muszą wystąpić jako osobne słowo, żeby
+nie łapały się w środku innych wyrazów. Jeden kontakt liczy się do jednego
+wskaźnika.
+
+### Reguły warunkowe
+
+Ten sam typ może trafiać do różnych wskaźników zależnie od kontekstu. ACQ na
+sprzedaż to NT15 (100 pkt), ale ACQ na wynajem to AFF, czyli NT16 (12,5 pkt).
+Reguła z **warunkiem** obsługuje to bez dublowania typów: warunek to dodatkowy
+fragment tekstu szukany **w całym wierszu** (typ, powiązanie, notatka), bo CRM
+może trzymać rozróżnienie w różnych kolumnach. Reguły z warunkiem sprawdzane
+są przed regułami bez warunku.
+
+### Liczniki operacyjne
+
+Nie wszystko, co robi zespół, jest punktowane. Telefony (`Tel ogólny`,
+`Telefon z propozycją`, `Tel z bazy danych`) to po prostu wykonane połączenia
+— liczą się jako **wykonane telefony** i widać je na karcie pracownika, ale
+dają zero punktów. Tak samo `Oferta` (propozycja mieszkania złożona
+kupującemu). To celowe rozdzielenie: praca ma być widoczna, nawet gdy
+klasyfikacja jej nie wycenia.
+
+**Uwaga:** R4 („propozycje telefoniczne”, 2 pkt) to wskaźnik **koordynatorki**
+z innego eksportu — nie należy go mylić z telefonami agenta w terenie.
 
 ### Ręcznie: reszta tabeli
 

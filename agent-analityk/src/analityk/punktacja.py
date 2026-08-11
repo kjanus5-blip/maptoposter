@@ -85,6 +85,17 @@ WSKAZNIKI: tuple[Wskaznik, ...] = (
     Wskaznik("NO10", "Spotkania KIRON", 5, ROLE_WSZYSTKIE),
 )
 
+#: Liczniki operacyjne: mierzymy je, ale klasyfikacja ich nie punktuje.
+#: Telefony to praca, którą warto widzieć w raporcie — po prostu nie dają punktów.
+LICZNIKI_OPERACYJNE: tuple[Wskaznik, ...] = (
+    Wskaznik("TEL_WYKONANE", "Wykonane telefony", 0, ROLE_WSZYSTKIE, AUTO,
+             "Tel ogólny, tel z propozycją, tel z bazy — połączenie do osoby"),
+    Wskaznik("OFERTY", "Propozycje ofert (VEN)", 0, ROLE_WSZYSTKIE, AUTO,
+             "Propozycja mieszkania złożona kupującemu"),
+)
+
+KODY_OPERACYJNE = {w.kod for w in LICZNIKI_OPERACYJNE}
+
 #: Wskaźniki pomocnicze — same nie dają punktów, ale wchodzą do ułamków bonusowych.
 WSKAZNIKI_POMOCNICZE: tuple[Wskaznik, ...] = (
     Wskaznik("NT13", "Notizie do zarządzania (mianownik bonusu)", 0, ROLE_WSZYSTKIE),
@@ -109,7 +120,9 @@ BONUSY: tuple[Bonus, ...] = (
 #: Bonus biura za średnią na osobę — patrz `punkty_biura`.
 BONUS_BIURA_ZA_OSOBE = 2500
 
-WSZYSTKIE_KODY = {w.kod: w for w in WSKAZNIKI + WSKAZNIKI_POMOCNICZE}
+WSZYSTKIE_KODY = {
+    w.kod: w for w in WSKAZNIKI + WSKAZNIKI_POMOCNICZE + LICZNIKI_OPERACYJNE
+}
 
 
 def wskazniki_dla_roli(rola: str) -> list[Wskaznik]:
@@ -229,13 +242,32 @@ def punkty_biura(licznosci: dict[str, float], liczba_osob: int = 0,
 #: Wstępne mapowanie typów aktywności z CRM na kody wskaźników.
 #: Panel („Typy aktywności") pozwala je poprawić i dopisać brakujące —
 #: te wartości to tylko punkt startowy, nie prawda objawiona.
-MAPOWANIE_DOMYSLNE: dict[str, tuple[str, str]] = {
-    "ricerca":      ("IM3",   "Kontakty z akcji ricerca"),
-    "propozycj":    ("R4",    "Telefon z propozycją"),
-    "acq":          ("NT15",  "Spotkanie acquisizione (ACQ) — sprawdź nazwę w CRM"),
-    "acquisizione": ("NT15",  "Spotkanie acquisizione (ACQ) — sprawdź nazwę w CRM"),
-    "aff":          ("NT16",  "Spotkanie acquisizione (AFF) — sprawdź nazwę w CRM"),
-    "ven":          ("REP17", "Spotkanie VEN — sprawdź, czy umówione czy wykonane"),
+#: Domyślne reguły: wzorzec -> (kod, opis, warunek).
+#: Warunek to dodatkowy fragment tekstu, który musi wystąpić w wierszu —
+#: dzięki temu ten sam typ trafia do różnych wskaźników zależnie od kontekstu
+#: (ACQ na wynajem to AFF/NT16, a nie NT15).
+MAPOWANIE_DOMYSLNE: dict[str, tuple[str, str, str]] = {
+    "ricerca":       ("IM3",  "Kontakty z akcji ricerca", ""),
+
+    # ACQ: sprzedaż -> NT15, wynajem -> NT16. Reguła z warunkiem ma pierwszeństwo.
+    "acq|wynajem":   ("NT16", "ACQ na wynajem (AFF)", "wynajem"),
+    "acq|najem":     ("NT16", "ACQ na najem (AFF)", "najem"),
+    "acq|affitto":   ("NT16", "ACQ na wynajem (AFF)", "affitto"),
+    "acq":           ("NT15", "ACQ — spotkanie acquisizione (sprzedaż)", ""),
+    "acquisizione":  ("NT15", "Acquisizione (sprzedaż)", ""),
+    "aff":           ("NT16", "AFF — acquisizione na wynajem", ""),
+
+    "ven":           ("IN21", "VEN / VEN telefoniczna — spotkanie wykonane", ""),
+    "v.m":           ("IN18", "Visita mensile", ""),
+    "vm":            ("IN18", "Visita mensile", ""),
+    "visita mensile": ("IN18", "Visita mensile", ""),
+
+    # Nie punktowane, ale liczone osobno:
+    "tel ogolny":    ("TEL_WYKONANE", "Telefon ogólny", ""),
+    "tel ogólny":    ("TEL_WYKONANE", "Telefon ogólny", ""),
+    "propozycj":     ("TEL_WYKONANE", "Telefon z propozycją", ""),
+    "z bazy":        ("TEL_WYKONANE", "Telefon z bazy danych", ""),
+    "oferta":        ("OFERTY", "Propozycja mieszkania (VEN)", ""),
 }
 
 
@@ -248,8 +280,49 @@ def _pasuje_wzorzec(tekst: str, wzorzec: str) -> bool:
     return wzorzec in tekst
 
 
+def _reguly(mapowanie: dict) -> list[tuple[str, str, str]]:
+    """Normalizuje mapowanie do listy (wzorzec, kod, warunek).
+
+    Reguły z warunkiem idą pierwsze — inaczej „acq” złapałoby wiersz wynajmu,
+    zanim doszłoby do reguły „acq + wynajem”.
+    """
+    reguly = []
+    for wzorzec, dane in mapowanie.items():
+        if isinstance(dane, dict):
+            kod, warunek = dane.get("kod", ""), dane.get("warunek", "") or ""
+        elif isinstance(dane, (tuple, list)):
+            kod = dane[0]
+            warunek = dane[2] if len(dane) > 2 else ""
+        else:
+            kod, warunek = dane, ""
+        if kod:
+            # wzorzec „acq|wynajem” to zapis skrócony: typ | warunek
+            czysty = wzorzec.split("|")[0].strip()
+            reguly.append((czysty, kod, warunek.lower()))
+    reguly.sort(key=lambda r: (not r[2], -len(r[0])))   # najpierw z warunkiem
+    return reguly
+
+
+def dopasuj_kod(aktywnosc: Activity, reguly: list[tuple[str, str, str]]) -> str:
+    """Kod wskaźnika dla jednej aktywności albo pusty string."""
+    tekst_typu = f"{aktywnosc.podtyp or ''} {aktywnosc.kanal or ''}".lower()
+    # warunku szukamy w całym wierszu — nie wiemy z góry, w której kolumnie
+    # CRM trzyma rozróżnienie sprzedaż/wynajem
+    kontekst = " ".join([
+        aktywnosc.podtyp or "", aktywnosc.kanal or "",
+        aktywnosc.powiazanie or "", aktywnosc.notatka or "",
+    ]).lower()
+    for wzorzec, kod, warunek in reguly:
+        if not _pasuje_wzorzec(tekst_typu, wzorzec):
+            continue
+        if warunek and warunek not in kontekst:
+            continue
+        return kod
+    return ""
+
+
 def licznosci_z_aktywnosci(aktywnosci: list[Activity],
-                           mapowanie: dict[str, str] | None = None) -> dict[str, float]:
+                           mapowanie: dict | None = None) -> dict[str, float]:
     """Zlicza aktywności według mapowania „typ z CRM → kod wskaźnika”.
 
     Bez mapowania używa wartości domyślnych. Typ, którego nikt nie zmapował,
@@ -257,24 +330,24 @@ def licznosci_z_aktywnosci(aktywnosci: list[Activity],
     było widać, że coś się nie liczy.
     """
     if mapowanie is None:
-        mapowanie = {w: kod for w, (kod, _) in MAPOWANIE_DOMYSLNE.items()}
+        mapowanie = MAPOWANIE_DOMYSLNE
+    reguly = _reguly(mapowanie)
 
     licznosci: dict[str, float] = {}
     for a in aktywnosci:
-        tekst = f"{a.podtyp or ''} {a.kanal or ''}".lower()
-        for wzorzec, kod in mapowanie.items():
-            if _pasuje_wzorzec(tekst, wzorzec):
-                licznosci[kod] = licznosci.get(kod, 0) + 1
-                break          # jeden kontakt = jeden wskaźnik
+        kod = dopasuj_kod(a, reguly)
+        if kod:
+            licznosci[kod] = licznosci.get(kod, 0) + 1
     return licznosci
 
 
-def niezmapowane_typy(typy: list[dict], mapowanie: dict[str, str]) -> list[dict]:
+def niezmapowane_typy(typy: list[dict], mapowanie: dict) -> list[dict]:
     """Typy obecne w danych, którym nie odpowiada żaden wskaźnik."""
+    wzorce = [w for w, _, _ in _reguly(mapowanie)]
     braki = []
     for t in typy:
         tekst = f"{t.get('podtyp') or ''} {t.get('kanal') or ''}".lower()
-        if not any(_pasuje_wzorzec(tekst, w) for w in mapowanie):
+        if not any(_pasuje_wzorzec(tekst, w) for w in wzorce):
             braki.append(t)
     return braki
 
@@ -289,8 +362,7 @@ def licznosci_okresu(baza, pracownik_klucz: str, typ_okresu: str, klucz_okresu: 
     """
     if aktywnosci is None:
         aktywnosci = baza.pobierz(pracownik=pracownik_klucz, od=od or None, do=do or None)
-    mapowanie = {w: dane["kod"] for w, dane in baza.mapowanie_typow().items()} or None
-    licznosci = licznosci_z_aktywnosci(aktywnosci, mapowanie)
+    licznosci = licznosci_z_aktywnosci(aktywnosci, baza.mapowanie_typow() or None)
     licznosci.update(baza.wskazniki(pracownik_klucz, typ_okresu, klucz_okresu))
     return licznosci
 
@@ -303,6 +375,10 @@ def dopisz_punkty(baza, pracownik, typ_okresu: str, klucz_okresu: str,
     metryki["punkty"] = wynik
     metryki["punkty_razem"] = wynik["punkty_razem"]
     metryki["punkty_kompletnosc_proc"] = wynik["kompletnosc_proc"]
+    metryki["liczniki_operacyjne"] = {
+        w.kod: {"nazwa": w.nazwa, "ile": licznosci.get(w.kod, 0)}
+        for w in LICZNIKI_OPERACYJNE if licznosci.get(w.kod)
+    }
     return metryki
 
 
