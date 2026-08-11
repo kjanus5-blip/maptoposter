@@ -1,0 +1,12 @@
+# Baza zawiera dane osobowe (adresy, notatki o mieszkańcach) — nigdy do repo.
+data/
+raporty/
+# Eksporty z CRM też zawierają dane osobowe.
+przyklady/*.pdf
+*.xlsx
+__pycache__/
+*.pyc
+
+# Profile zawierają dane pracowników — w repo zostaje tylko wzorzec.
+config/pracownicy/*.yaml
+!config/pracownicy/_przyklad.yaml

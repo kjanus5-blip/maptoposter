@@ -1,0 +1,36 @@
+# Przykładowy profil pracownika. Skopiuj do <klucz_pracownika>.yaml
+# (klucz zobaczysz po `analityk wczytaj` — np. jan_kowalski) albo utwórz
+# komendą `analityk profil --pracownik jan_kowalski --staz 3 ...`.
+#
+# Prawdziwe profile są celowo poza repozytorium (.gitignore) — zawierają
+# dane pracowników.
+
+klucz: jan_kowalski
+imie_nazwisko: Jan Kowalski
+rola: pozyskiwacz          # agent | pozyskiwacz | sprzedawca | manager
+staz_miesiace: 3           # < 6 mies. => agent AI ocenia z poziomu nowicjusza
+zatrudniony_od: '2026-05-01'
+
+obszar_farmingu:
+  - Dworcowa
+  - Kniaziewicza
+
+# Normy nadpisują wartości domyślne z metrics.py. Podajesz tylko to,
+# co chcesz zmienić — reszta zostaje domyślna.
+normy:
+  dzien:
+    aktywnosci: 45
+    rozmowy: 28
+    leady: 1
+  tydzien:
+    aktywnosci: 220
+    leady: 5
+
+cele_rozwojowe:
+  - Zostawiać materiał kontaktowy przy każdej otwartej rozmowie
+  - Zadawać pytanie o sąsiadów po usłyszeniu odmowy
+
+styl_feedbacku: konkretny, bez owijania, z jednym priorytetem na tydzień
+uwagi_managera: >
+  Świetne dotarcie i wysoka odporność na odmowy. Pracujemy nad tym,
+  żeby po "nie" cokolwiek zostawało.
