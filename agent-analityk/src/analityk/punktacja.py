@@ -91,8 +91,10 @@ WSKAZNIKI: tuple[Wskaznik, ...] = (
 #: Liczniki operacyjne: mierzymy je, ale klasyfikacja ich nie punktuje.
 #: Telefony to praca, którą warto widzieć w raporcie — po prostu nie dają punktów.
 LICZNIKI_OPERACYJNE: tuple[Wskaznik, ...] = (
-    Wskaznik("TEL_WYKONANE", "Wykonane telefony", 0, ROLE_WSZYSTKIE, AUTO,
-             "Tel ogólny, tel z propozycją, tel z bazy — połączenie do osoby"),
+    Wskaznik("TEL_WYKONANE", "Wykonane telefony i kontakty ogólne", 0,
+             ROLE_WSZYSTKIE, AUTO,
+             "Tel ogólny, telefon z propozycją, telefon z bazy, tel na ACQ "
+             "oraz spotkania typu „Ogólny”"),
     Wskaznik("OFERTY", "Propozycje ofert (VEN)", 0, ROLE_WSZYSTKIE, AUTO,
              "Propozycja mieszkania złożona kupującemu"),
     Wskaznik("CONT_SPOTKANIA", "Spotkania CONT", 0, ROLE_WSZYSTKIE, AUTO,
@@ -283,6 +285,7 @@ MAPOWANIE_DOMYSLNE: tuple[tuple[str, str, str, str, str], ...] = (
     ("tel ogolny", "", "", "TEL_WYKONANE", "Telefon ogólny"),
     ("telefon ogolny", "", "", "TEL_WYKONANE", "Telefon ogólny"),
     ("z bazy danych", "", "", "TEL_WYKONANE", "Telefon z bazy danych"),
+    ("ogolny", "", "", "TEL_WYKONANE", "Kontakt ogólny — liczony razem z telefonami"),
     ("oferta", "", "", "OFERTY", "Propozycja mieszkania (VEN)"),
     ("cont", "spotkanie", "", "CONT_SPOTKANIA",
      "Spotkanie z kupującym po prezentacji — omówienie procesu zakupu"),
@@ -294,7 +297,6 @@ MAPOWANIE_DOMYSLNE: tuple[tuple[str, str, str, str, str], ...] = (
     # --- świadomie pomijane ---
     ("personale", "", "", KOD_POMIJANY, "Spotkanie wewnętrzne — nie punktujemy"),
 
-    # Celowo bez reguły — czeka na decyzję w panelu: „Ogólny"
 )
 
 

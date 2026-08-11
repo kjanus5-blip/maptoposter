@@ -17,6 +17,8 @@ from analityk.org import Biuro, Pracownik  # noqa: E402
 from analityk.org import ROLA_AGENT  # noqa: E402
 from analityk.punktacja import (  # noqa: E402
     MAPOWANIE_DOMYSLNE,
+    _reguly,
+    dopasuj_kod,
     dopisz_punkty,
     licznosci_okresu,
     licznosci_z_aktywnosci,
@@ -172,6 +174,39 @@ class TestRegulyZWarunkiem(unittest.TestCase):
             licznosci_z_aktywnosci([akt("Telefon ogólny", "telefon", 1)]),
             {"TEL_WYKONANE": 1},
         )
+
+    def test_wszystkie_typy_z_eksportu_maja_regule(self):
+        """Pełna lista par (Modyfikuj kontakt, typ) z prawdziwego CRM.
+
+        Ten test pilnuje, żeby zmiana reguł nie wysypała po cichu żadnej
+        kombinacji, która realnie występuje w eksportach.
+        """
+        oczekiwane = {
+            ("bezposredni", "RICERCA"): "IM3",
+            ("telefon", "RICERCA"): "IM3",
+            ("bezposredni", "ACQ"): "NT15",
+            ("spotkanie", "ACQ"): "NT15",
+            ("spotkanie", "VEN"): "IN21",
+            ("spotkanie", "Vendita telefoniczna"): "IN21",
+            ("spotkanie", "V.M."): "IN18",
+            ("telefon", "V.M."): "IN18",
+            ("telefon", "Aktualizacja richiesty"): "R6",
+            ("spotkanie", "Cont"): "CONT_SPOTKANIA",
+            ("telefon", "Oferta"): "OFERTY",
+            ("telefon", "Tel na ACQ"): "TEL_WYKONANE",
+            ("telefon", "Tel ogólny"): "TEL_WYKONANE",
+            ("telefon", "Telefon ogólny"): "TEL_WYKONANE",
+            ("telefon", "Telefon z bazy danych"): "TEL_WYKONANE",
+            ("telefon", "Telefon z propozycją kupna"): "TEL_WYKONANE",
+            ("telefon", "Telefon z propozycją wynajmu"): "TEL_WYKONANE",
+            ("telefon", "Telefon z propozycją dzierżawy"): "TEL_WYKONANE",
+            ("spotkanie", "Ogólny"): "TEL_WYKONANE",
+            ("spotkanie", "personale"): "POMIJANE",
+        }
+        reguly = _reguly(MAPOWANIE_DOMYSLNE)
+        for (kanal, typ), kod in oczekiwane.items():
+            with self.subTest(kanal=kanal, typ=typ):
+                self.assertEqual(dopasuj_kod(akt(typ, kanal, 1), reguly), kod)
 
     def test_typy_bez_reguly_zostaja_nieprzypisane(self):
         """Nie zgadujemy — typ, którego nikt nie opisał, czeka na decyzję."""

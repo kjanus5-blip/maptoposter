@@ -112,6 +112,7 @@ Ustawione reguły. O wskaźniku decydują **obie kolumny** — „Modyfikuj kont
 | Telefon | `Oferta` | OFERTY | **0** |
 | Spotkanie | `Cont` | CONT_SPOTKANIA | **0** |
 | dowolny | `Aktualizacja richiesty` | R6 | 2 |
+| Spotkanie | `Ogólny` | TEL_WYKONANE | **0** |
 | Spotkanie | `personale` | świadomie pomijane | — |
 
 Bez kanału `ACQ` byłoby nie do odróżnienia od `Tel na ACQ` — telefon w sprawie
@@ -122,7 +123,9 @@ i **świadomie pomijany**. Ten ostatni to nie to samo co brak reguły — typ be
 reguły świeci się na czerwono („nie liczy się”), bo nie wiemy, co z nim
 zrobić; typ pomijany jest szary, bo decyzja zapadła.
 
-**Bez reguły** czeka jeszcze: `Ogólny`.
+Wszystkie typy występujące w eksportach mają dziś swoją regułę. Nowy typ,
+który pojawi się w CRM, sam wyląduje na czerwono w tabeli — to sygnał, że
+trzeba podjąć decyzję, a nie że coś jest zepsute.
 
 Reguła dopasowuje się, gdy nazwa typu *zawiera* podany fragment; polskie znaki
 są ignorowane po obu stronach („Telefon ogólny” pasuje do wzorca `telefon
@@ -148,7 +151,7 @@ bo bez nich obraz pracy jest niepełny:
 
 | Licznik | Co obejmuje |
 |---|---|
-| **Wykonane telefony** | `Tel ogólny`, `Telefon z propozycją kupna/wynajmu/dzierżawy`, `Telefon z bazy danych`, `Tel na ACQ` |
+| **Wykonane telefony i kontakty ogólne** | `Tel ogólny`, `Telefon ogólny`, `Telefon z propozycją kupna/wynajmu/dzierżawy`, `Telefon z bazy danych`, `Tel na ACQ`, `Spotkanie + Ogólny` |
 | **Propozycje ofert (VEN)** | `Oferta` — propozycja mieszkania złożona kupującemu |
 | **Spotkania CONT** | spotkanie z kupującym po prezentacji: omówienie procesu zakupu, może skończyć się złożeniem oferty |
 
