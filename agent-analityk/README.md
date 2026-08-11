@@ -72,8 +72,12 @@ Dalej klikaj:
    dzień/tydzień/miesiąc/kwartał/rok jest na górze każdej strony.
 4. **Do zrobienia** — kolejka follow-upów wyłapanych automatycznie z notatek,
    pogrupowana: po terminie / na dziś / ten tydzień / później / bez terminu.
-5. **Tematy** — powtarzające się wątki i obiekcje z notatek.
-6. **Karta pracownika** — pełne rozbicie punktów, porównanie z grupą,
+5. **Tematy** — powtarzające się wątki i obiekcje z notatek; każdy można
+   wziąć na śledzenie (z własną notatką) albo ukryć.
+6. **Typy aktywności** — decydujesz, które typy z kolumny „Typ”/„Mobilny”
+   liczą się do których wskaźników punktacji. Typy niezmapowane są wyraźnie
+   oznaczone, żeby ich punkty nie przepadały niezauważone.
+7. **Karta pracownika** — pełne rozbicie punktów, porównanie z grupą,
    wykresy, zadania, leady do dopilnowania, pamięć agenta i przycisk
    generowania oceny AI.
 
@@ -105,7 +109,7 @@ Podgląd promptu bez płacenia za wywołanie API: dodaj `--pokaz-prompt`.
 | `zespol --okres ...` | ranking biur i pracowników + wszystkie alerty |
 | `serwer` | panel WWW (`--host`, `--port`) |
 | `biuro --dodaj NAZWA` / `biuro` | dodanie i lista biur |
-| `pracownik --klucz X --biuro N --rola ...` | przypisanie do biura, rola, staż, normy |
+| `pracownik --klucz X --biuro N --rola ...` | przypisanie do biura, rola, początek pracy, normy |
 | `zadania [--strona agent\|klient] [--wykryj] [--llm]` | kolejka follow-upów; `--zrobione ID` odhacza |
 | `tematy --okres ...` | powtarzające się wątki i obiekcje z notatek |
 | `pamiec --pracownik X --dodaj "..."` | ustalenia z 1:1 — agent pamięta je przy następnym raporcie |

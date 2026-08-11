@@ -24,6 +24,15 @@
     </div>
     <div><button type="submit">Pokaż</button></div>
   </form>
+  <p class="notatka" style="margin-top:10px">
+    {% if pokaz_odrzucone %}
+      <a href="{{ url_for('widok_tematow', okres=okres.typ, klucz=okres.klucz,
+                          pracownik=wybrany_pracownik) }}">Ukryj odrzucone tematy</a>
+    {% else %}
+      <a href="{{ url_for('widok_tematow', okres=okres.typ, klucz=okres.klucz,
+                          pracownik=wybrany_pracownik, odrzucone='1') }}">Pokaż także ukryte tematy</a>
+    {% endif %}
+  </p>
 </div>
 
 {% if not lista %}
@@ -33,7 +42,10 @@
 {% for t in lista %}
   <div class="karta">
     <h2>{{ t.temat.replace('_', ' ')|capitalize }}
-      <span class="rola">· {{ t.ile }} × ({{ t.udzial_proc }}% kontaktów)</span></h2>
+      <span class="rola">· {{ t.ile }} × ({{ t.udzial_proc }}% kontaktów)</span>
+      {% if t.status == 'sledzony' %}<span class="odznaka dobra">śledzony</span>
+      {% elif t.status == 'odrzucony' %}<span class="odznaka slaba">ukryty</span>{% endif %}
+    </h2>
     {% if t.budynki %}
       <p class="notatka">Budynki: {{ t.budynki[:10]|join(', ') }}</p>
     {% endif %}
@@ -42,6 +54,28 @@
         <li><strong>{{ p.adres or '—' }}</strong> — {{ p.notatka }}</li>
       {% endfor %}
     </ul>
+    <form method="post" action="{{ url_for('zmien_status_tematu', temat=t.temat) }}"
+          style="margin-top:12px">
+      <input type="hidden" name="powrot" value="{{ request.full_path }}">
+      <div class="pola">
+        <div style="grid-column: span 2">
+          <label for="notatka-{{ t.temat }}">Notatka (np. co z tym robimy)</label>
+          <input type="text" id="notatka-{{ t.temat }}" name="notatka"
+                 value="{{ t.notatka_wlasna }}"
+                 placeholder="np. skrypt odpowiedzi na odprawę 20.08">
+        </div>
+        <div>
+          {% if t.status == 'sledzony' %}
+            <button type="submit" name="status" value="nowy" class="wtorny">Przestań śledzić</button>
+          {% else %}
+            <button type="submit" name="status" value="sledzony">Śledzę ten temat</button>
+          {% endif %}
+        </div>
+        <div>
+          <button type="submit" name="status" value="odrzucony" class="groźny">Ukryj</button>
+        </div>
+      </div>
+    </form>
   </div>
 {% endfor %}
 

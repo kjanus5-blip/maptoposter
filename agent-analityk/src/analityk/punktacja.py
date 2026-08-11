@@ -20,6 +20,7 @@ zgadujemy wartości, bo od tych punktów zależą pieniądze ludzi.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from .models import Activity
@@ -225,22 +226,57 @@ def punkty_biura(licznosci: dict[str, float], liczba_osob: int = 0,
 
 # --- co da się policzyć z eksportu aktywności -----------------------------
 
-def licznosci_z_aktywnosci(aktywnosci: list[Activity]) -> dict[str, float]:
-    """Wskaźniki wyliczalne wprost z „Analizy Działań i Spotkań”.
+#: Wstępne mapowanie typów aktywności z CRM na kody wskaźników.
+#: Panel („Typy aktywności") pozwala je poprawić i dopisać brakujące —
+#: te wartości to tylko punkt startowy, nie prawda objawiona.
+MAPOWANIE_DOMYSLNE: dict[str, tuple[str, str]] = {
+    "ricerca":      ("IM3",   "Kontakty z akcji ricerca"),
+    "propozycj":    ("R4",    "Telefon z propozycją"),
+    "acq":          ("NT15",  "Spotkanie acquisizione (ACQ) — sprawdź nazwę w CRM"),
+    "acquisizione": ("NT15",  "Spotkanie acquisizione (ACQ) — sprawdź nazwę w CRM"),
+    "aff":          ("NT16",  "Spotkanie acquisizione (AFF) — sprawdź nazwę w CRM"),
+    "ven":          ("REP17", "Spotkanie VEN — sprawdź, czy umówione czy wykonane"),
+}
 
-    Dziś są to dwa: IM3 (kontakty z akcji RICERCA) i R4 (telefony z propozycją).
-    Reszta tabeli pochodzi z innych modułów CRM i wchodzi do systemu ręcznie
-    albo osobnym plikiem.
+
+def _pasuje_wzorzec(tekst: str, wzorzec: str) -> bool:
+    """Dopasowanie po całym słowie, żeby „ven” nie łapało się w środku wyrazu."""
+    if not wzorzec:
+        return False
+    if len(wzorzec) <= 4:                      # krótkie kody: ACQ, AFF, VEN
+        return re.search(rf"\b{re.escape(wzorzec)}\b", tekst) is not None
+    return wzorzec in tekst
+
+
+def licznosci_z_aktywnosci(aktywnosci: list[Activity],
+                           mapowanie: dict[str, str] | None = None) -> dict[str, float]:
+    """Zlicza aktywności według mapowania „typ z CRM → kod wskaźnika”.
+
+    Bez mapowania używa wartości domyślnych. Typ, którego nikt nie zmapował,
+    **nie jest zgadywany** — trafia na listę nieprzypisanych w panelu, żeby
+    było widać, że coś się nie liczy.
     """
-    im3 = sum(1 for a in aktywnosci if "ricerca" in (a.podtyp or "").lower())
-    r4 = sum(1 for a in aktywnosci
-             if a.kanal == "telefon" and "propozycj" in (a.podtyp or "").lower())
+    if mapowanie is None:
+        mapowanie = {w: kod for w, (kod, _) in MAPOWANIE_DOMYSLNE.items()}
+
     licznosci: dict[str, float] = {}
-    if im3 or any("ricerca" in (a.podtyp or "").lower() for a in aktywnosci):
-        licznosci["IM3"] = im3
-    if r4:
-        licznosci["R4"] = r4
+    for a in aktywnosci:
+        tekst = f"{a.podtyp or ''} {a.kanal or ''}".lower()
+        for wzorzec, kod in mapowanie.items():
+            if _pasuje_wzorzec(tekst, wzorzec):
+                licznosci[kod] = licznosci.get(kod, 0) + 1
+                break          # jeden kontakt = jeden wskaźnik
     return licznosci
+
+
+def niezmapowane_typy(typy: list[dict], mapowanie: dict[str, str]) -> list[dict]:
+    """Typy obecne w danych, którym nie odpowiada żaden wskaźnik."""
+    braki = []
+    for t in typy:
+        tekst = f"{t.get('podtyp') or ''} {t.get('kanal') or ''}".lower()
+        if not any(_pasuje_wzorzec(tekst, w) for w in mapowanie):
+            braki.append(t)
+    return braki
 
 
 def licznosci_okresu(baza, pracownik_klucz: str, typ_okresu: str, klucz_okresu: str,
@@ -253,7 +289,8 @@ def licznosci_okresu(baza, pracownik_klucz: str, typ_okresu: str, klucz_okresu: 
     """
     if aktywnosci is None:
         aktywnosci = baza.pobierz(pracownik=pracownik_klucz, od=od or None, do=do or None)
-    licznosci = licznosci_z_aktywnosci(aktywnosci)
+    mapowanie = {w: dane["kod"] for w, dane in baza.mapowanie_typow().items()} or None
+    licznosci = licznosci_z_aktywnosci(aktywnosci, mapowanie)
     licznosci.update(baza.wskazniki(pracownik_klucz, typ_okresu, klucz_okresu))
     return licznosci
 

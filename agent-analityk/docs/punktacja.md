@@ -81,15 +81,33 @@ liczby lub jednej linijki:
 
 ## Skąd biorą się liczby
 
-Eksport „Analiza Działań i Spotkań” zawiera tylko aktywności kontaktowe,
-więc automatycznie liczą się z niego **dwa** wskaźniki:
+### Automatycznie: kolumna „Typ” / „Mobilny”
 
-- **IM3** — aktywności z podtypem `RICERCA`,
-- **R4** — telefony z podtypem zawierającym „propozycj”.
+Aktywności z eksportu przeliczają się na wskaźniki według **mapowania typów**,
+które ustawiasz sam w panelu (zakładka **Typy aktywności**). Ekran pokazuje
+wszystkie typy występujące w Twoich danych wraz z licznością i tym, na jaki
+wskaźnik są przeliczane. Typ, którego nikt nie zmapował, dostaje czerwoną
+etykietę **„nie liczy się”** — nic nie ginie po cichu.
 
-Reszta pochodzi z innych modułów CRM (notizie, incarichi, rapporti). Do czasu
-podłączenia tych eksportów wpisuje się je ręcznie: karta pracownika →
-sekcja **„Uzupełnij wskaźniki za okres”**. Zasady:
+Wstępnie ustawione reguły (do sprawdzenia i poprawienia):
+
+| Fragment nazwy | Wskaźnik | Uwaga |
+|---|---|---|
+| `ricerca` | IM3 | potwierdzone na prawdziwym eksporcie |
+| `propozycj` | R4 | potwierdzone na prawdziwym eksporcie |
+| `acq`, `acquisizione` | NT15 | **do potwierdzenia** — nie wystąpiło w danych |
+| `aff` | NT16 | **do potwierdzenia** |
+| `ven` | REP17 | **do potwierdzenia**; VEN umówione (REP17) i wykonane (IN21) to dwa różne wskaźniki, więc prawdopodobnie potrzebne są dwie osobne reguły |
+
+Reguła dopasowuje się, gdy nazwa typu *zawiera* podany fragment. Kody do
+czterech znaków (ACQ, AFF, VEN) muszą wystąpić jako osobne słowo, żeby nie
+łapały się w środku innych wyrazów. Jeden kontakt liczy się do jednego
+wskaźnika — pierwsza pasująca reguła wygrywa.
+
+### Ręcznie: reszta tabeli
+
+Wskaźniki z modułów notizie / incarichi / rapporti wpisuje się na karcie
+pracownika w sekcji **„Uzupełnij wskaźniki za okres”**. Zasady:
 
 - **puste pole ≠ zero.** Puste znaczy „nie wiem” i jest tak pokazywane —
   wskaźnik ma etykietę „do wpisania”, a raport podaje procent kompletności.

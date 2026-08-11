@@ -10,6 +10,7 @@ wersjonowaniu ustawień poza panelem.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -110,8 +111,38 @@ class Pracownik:
         return polaczone
 
     @property
+    def staz(self) -> int:
+        """Staż w miesiącach.
+
+        Liczony z daty zatrudnienia, żeby nie trzeba go było ręcznie
+        podbijać co miesiąc. Pole `staz_miesiace` zostaje jako wartość
+        zapasowa dla osób, którym daty nie wpisano.
+        """
+        if not self.zatrudniony_od:
+            return self.staz_miesiace
+        try:
+            od = date.fromisoformat(self.zatrudniony_od)
+        except ValueError:
+            return self.staz_miesiace
+        dzis = date.today()
+        miesiace = (dzis.year - od.year) * 12 + (dzis.month - od.month)
+        if dzis.day < od.day:
+            miesiace -= 1
+        return max(miesiace, 0)
+
+    @property
+    def staz_opis(self) -> str:
+        m = self.staz
+        if m < 1:
+            return "poniżej miesiąca"
+        if m < 12:
+            return f"{m} mies."
+        lata, reszta = divmod(m, 12)
+        return f"{lata} l. {reszta} mies." if reszta else f"{lata} l."
+
+    @property
     def nowicjusz(self) -> bool:
-        return self.staz_miesiace < 6
+        return self.staz < 6
 
     @property
     def nazwa_roli(self) -> str:

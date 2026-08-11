@@ -82,6 +82,21 @@ CREATE TABLE IF NOT EXISTS wskazniki (
     PRIMARY KEY (pracownik, okres_typ, okres_klucz, kod)
 );
 
+CREATE TABLE IF NOT EXISTS tematy_status (
+    temat TEXT PRIMARY KEY,
+    status TEXT NOT NULL DEFAULT 'nowy',   -- nowy | sledzony | odrzucony
+    notatka TEXT DEFAULT '',
+    zmieniono TEXT
+);
+
+CREATE TABLE IF NOT EXISTS mapowanie_typow (
+    wzorzec TEXT PRIMARY KEY,      -- fragment z kolumny Typ/Mobilny, małymi literami
+    kod TEXT NOT NULL,             -- kod wskaźnika z punktacji
+    opis TEXT DEFAULT '',
+    zrodlo TEXT DEFAULT 'reczne',  -- domyslne | reczne
+    zmieniono TEXT
+);
+
 CREATE TABLE IF NOT EXISTS zadania (
     id TEXT PRIMARY KEY,
     pracownik TEXT NOT NULL,
@@ -290,6 +305,91 @@ class Baza:
             sql += " AND p.aktywny = 1"
         sql += " ORDER BY p.imie_nazwisko"
         return [self._na_pracownika(r) for r in self.con.execute(sql, params)]
+
+    def usun_pracownika(self, klucz: str, z_danymi: bool = False) -> dict:
+        """Usuwa pracownika. Z `z_danymi=True` kasuje też jego aktywności.
+
+        Bez tego druga opcja nie miałaby sensu: `synchronizuj_pracownikow`
+        odtworzyłaby wpis przy najbliższym wczytaniu pliku, bo osoba nadal
+        występuje w danych.
+        """
+        licznik = {
+            "aktywnosci": 0, "zadania": 0, "wskazniki": 0, "raporty": 0, "pamiec": 0,
+        }
+        if z_danymi:
+            for tabela, kolumna in (("aktywnosci", "pracownik"), ("zadania", "pracownik"),
+                                    ("wskazniki", "pracownik"), ("raporty", "pracownik"),
+                                    ("pamiec", "pracownik")):
+                cur = self.con.execute(f"DELETE FROM {tabela} WHERE {kolumna} = ?", (klucz,))
+                licznik[tabela] = cur.rowcount
+        self.con.execute("DELETE FROM pracownicy WHERE klucz = ?", (klucz,))
+        self.con.commit()
+        return licznik
+
+    # --- tematy: śledzenie i odrzucanie -----------------------------------
+
+    def status_tematow(self) -> dict[str, dict]:
+        return {
+            r["temat"]: {"status": r["status"], "notatka": r["notatka"] or ""}
+            for r in self.con.execute("SELECT * FROM tematy_status")
+        }
+
+    def ustaw_status_tematu(self, temat: str, status: str, notatka: str = "") -> None:
+        self.con.execute(
+            """INSERT INTO tematy_status (temat, status, notatka, zmieniono)
+               VALUES (?,?,?,?)
+               ON CONFLICT(temat) DO UPDATE SET
+                 status=excluded.status, notatka=excluded.notatka,
+                 zmieniono=excluded.zmieniono""",
+            (temat, status, notatka, datetime.now().isoformat(timespec="seconds")),
+        )
+        self.con.commit()
+
+    # --- mapowanie typów aktywności na wskaźniki --------------------------
+
+    def mapowanie_typow(self) -> dict[str, dict]:
+        return {
+            r["wzorzec"]: {"kod": r["kod"], "opis": r["opis"] or "",
+                           "zrodlo": r["zrodlo"] or "reczne"}
+            for r in self.con.execute("SELECT * FROM mapowanie_typow ORDER BY wzorzec")
+        }
+
+    def ustaw_mapowanie(self, wzorzec: str, kod: str, opis: str = "",
+                        zrodlo: str = "reczne") -> None:
+        wzorzec = wzorzec.strip().lower()
+        if not wzorzec:
+            return
+        if not kod:
+            self.con.execute("DELETE FROM mapowanie_typow WHERE wzorzec = ?", (wzorzec,))
+        else:
+            self.con.execute(
+                """INSERT INTO mapowanie_typow (wzorzec, kod, opis, zrodlo, zmieniono)
+                   VALUES (?,?,?,?,?)
+                   ON CONFLICT(wzorzec) DO UPDATE SET
+                     kod=excluded.kod, opis=excluded.opis, zrodlo=excluded.zrodlo,
+                     zmieniono=excluded.zmieniono""",
+                (wzorzec, kod, opis, zrodlo,
+                 datetime.now().isoformat(timespec="seconds")),
+            )
+        self.con.commit()
+
+    def wystepujace_typy(self, od: str | None = None, do: str | None = None) -> list[dict]:
+        """Wszystkie typy aktywności obecne w danych, z licznością.
+
+        To jest lista, którą trzeba domapować na wskaźniki punktacji — panel
+        pokazuje ją wprost, żeby nic nie ginęło po cichu.
+        """
+        sql = """SELECT kanal, podtyp, COUNT(*) n, MIN(dzien) od, MAX(dzien) do
+                 FROM aktywnosci WHERE 1=1"""
+        params: list = []
+        if od:
+            sql += " AND dzien >= ?"
+            params.append(od)
+        if do:
+            sql += " AND dzien <= ?"
+            params.append(do)
+        sql += " GROUP BY kanal, podtyp ORDER BY n DESC"
+        return [dict(r) for r in self.con.execute(sql, params)]
 
     def pracownik_lub_domyslny(self, klucz: str, nazwa: str = "") -> Pracownik:
         """Kolejność źródeł: baza → plik YAML → wartości domyślne.

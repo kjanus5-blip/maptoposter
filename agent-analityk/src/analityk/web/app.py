@@ -50,9 +50,12 @@ from ..metrics import (
 from ..models import WYNIK_INFO_RYNKOWE, WYNIK_LEAD, WYNIK_SYGNAL
 from ..org import NAZWY_ROL, OPIS_ROL, ROLE, Biuro
 from ..punktacja import (
+    MAPOWANIE_DOMYSLNE,
+    WSKAZNIKI,
     WSKAZNIKI_POMOCNICZE,
     dopisz_punkty,
     licznosci_okresu,
+    niezmapowane_typy,
     wskazniki_dla_roli,
 )
 from ..report import ETYKIETY_WYNIKOW, zbuduj_raport
@@ -402,13 +405,76 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
         o = kontekst_okresu()
         pracownik = request.args.get("pracownik") or None
         akt = b.pobierz(pracownik=pracownik, od=o["od"], do=o["do"])
+        statusy = b.status_tematow()
+        lista = tematy(akt, min_wystapien=2)
+        pokaz_odrzucone = request.args.get("odrzucone") == "1"
+        for t in lista:
+            t["status"] = statusy.get(t["temat"], {}).get("status", "nowy")
+            t["notatka_wlasna"] = statusy.get(t["temat"], {}).get("notatka", "")
+        if not pokaz_odrzucone:
+            lista = [t for t in lista if t["status"] != "odrzucony"]
         return render_template(
             "tematy.html",
-            lista=tematy(akt, min_wystapien=2),
+            lista=lista,
+            pokaz_odrzucone=pokaz_odrzucone,
             ile_aktywnosci=len(akt),
             pracownicy=b.pracownicy(),
             wybrany_pracownik=pracownik,
         )
+
+    @app.route("/typy")
+    def widok_typow():
+        """Mapowanie typów aktywności z CRM na wskaźniki punktacji."""
+        b = baza()
+        zapisane = b.mapowanie_typow()
+        if not zapisane:                       # pierwsze wejście: zasiej domyślne
+            for wzorzec, (kod, opis) in MAPOWANIE_DOMYSLNE.items():
+                b.ustaw_mapowanie(wzorzec, kod, opis, zrodlo="domyslne")
+            zapisane = b.mapowanie_typow()
+
+        typy = b.wystepujace_typy()
+        mapowanie = {w: dane["kod"] for w, dane in zapisane.items()}
+        braki = {(t["kanal"], t["podtyp"]) for t in niezmapowane_typy(typy, mapowanie)}
+        for t in typy:
+            t["nieprzypisany"] = (t["kanal"], t["podtyp"]) in braki
+            t["kod"] = next(
+                (mapowanie[w] for w in mapowanie
+                 if w in f"{t['podtyp'] or ''} {t['kanal'] or ''}".lower()), ""
+            )
+        return render_template(
+            "typy.html",
+            typy=typy,
+            mapowanie=zapisane,
+            wskazniki=WSKAZNIKI,
+            nieprzypisanych=len(braki),
+        )
+
+    @app.post("/typy/zapisz")
+    def zapisz_mapowanie():
+        b = baza()
+        wzorzec = (request.form.get("wzorzec") or "").strip()
+        kod = (request.form.get("kod") or "").strip()
+        if not wzorzec:
+            flash("Podaj fragment nazwy typu, np. „ricerca”.", "blad")
+            return redirect(url_for("widok_typow"))
+        b.ustaw_mapowanie(wzorzec, kod, request.form.get("opis", ""))
+        flash(
+            f"Zapisano: „{wzorzec}” → {kod}." if kod
+            else f"Usunięto mapowanie dla „{wzorzec}”.", "ok",
+        )
+        return redirect(url_for("widok_typow"))
+
+    @app.post("/tematy/<path:temat>/status")
+    def zmien_status_tematu(temat: str):
+        b = baza()
+        status = request.form.get("status", "sledzony")
+        if status not in ("nowy", "sledzony", "odrzucony"):
+            status = "nowy"
+        b.ustaw_status_tematu(temat, status, request.form.get("notatka", ""))
+        flash({"sledzony": f"Temat „{temat}” trafił do śledzonych.",
+               "odrzucony": f"Temat „{temat}” ukryty.",
+               "nowy": f"Temat „{temat}” wrócił do nowych."}[status], "ok")
+        return redirect(request.form.get("powrot") or url_for("widok_tematow"))
 
     # --- organizacja ------------------------------------------------------
 
@@ -455,11 +521,19 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
         b = baza()
         p = b.pracownik_lub_domyslny(klucz)
         biuro = request.form.get("biuro_id") or ""
+        # Biuro mogło zostać usunięte w innej zakładce — bez sprawdzenia
+        # zapis leci na klucz obcy i użytkownik dostaje pustą stronę błędu.
         p.biuro_id = int(biuro) if biuro.isdigit() else None
+        if p.biuro_id is not None and b.biuro(p.biuro_id) is None:
+            p.biuro_id = None
+            flash("Wybrane biuro już nie istnieje — osoba została bez przypisania.", "uwaga")
         p.rola = request.form.get("rola") or p.rola
         p.imie_nazwisko = (request.form.get("imie_nazwisko") or p.imie_nazwisko).strip()
+        zatrudniony = (request.form.get("zatrudniony_od") or "").strip()
+        p.zatrudniony_od = zatrudniony        # staż wyliczy się z tej daty
         staz = request.form.get("staz_miesiace") or ""
-        p.staz_miesiace = int(staz) if staz.isdigit() else p.staz_miesiace
+        if not zatrudniony and staz.isdigit():
+            p.staz_miesiace = int(staz)
         norma = request.form.get("norma_dzienna") or ""
         if norma.isdigit():
             p.normy.setdefault("dzien", {})["aktywnosci"] = int(norma)
@@ -470,6 +544,25 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
         p.aktywny = request.form.get("aktywny") == "1"
         b.zapisz_pracownika(p)
         flash(f"Zapisano: {p.imie_nazwisko}.", "ok")
+        return redirect(url_for("organizacja"))
+
+    @app.post("/organizacja/pracownik/<klucz>/usun")
+    def usun_pracownika(klucz: str):
+        b = baza()
+        osoba = b.pracownik(klucz)
+        nazwa = osoba.imie_nazwisko if osoba else klucz
+        z_danymi = request.form.get("z_danymi") == "1"
+        licznik = b.usun_pracownika(klucz, z_danymi=z_danymi)
+        if z_danymi:
+            flash(
+                f"Usunięto {nazwa} wraz z danymi: {licznik['aktywnosci']} aktywności, "
+                f"{licznik['zadania']} zadań, {licznik['raporty']} raportów.", "ok",
+            )
+        else:
+            flash(
+                f"Usunięto wpis {nazwa}. Aktywności zostały w bazie — osoba wróci "
+                "na listę przy najbliższym wczytaniu pliku.", "uwaga",
+            )
         return redirect(url_for("organizacja"))
 
     # --- wczytywanie danych ----------------------------------------------

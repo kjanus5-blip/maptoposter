@@ -1,0 +1,124 @@
+{% extends "baza.html" %}
+{% block tytul %}Typy aktywności — Agent Analityk{% endblock %}
+{% block pasek_okresu %}{% endblock %}
+
+{% block tresc %}
+
+<div class="naglowek-strony">
+  <h1>Typy aktywności</h1>
+  <span class="podtytul">Tu decydujesz, które aktywności z CRM liczą się do punktów</span>
+</div>
+
+{% if nieprzypisanych %}
+  <div class="alert">
+    <strong>{{ nieprzypisanych }}</strong>
+    <span>typ(y) aktywności nie liczą się do żadnego wskaźnika — ich punkty przepadają.
+      Przypisz je w tabeli poniżej.</span>
+  </div>
+{% endif %}
+
+<div class="karta">
+  <h2>Co jest w Twoich danych</h2>
+  <p class="notatka">Lista zbudowana z kolumn <code>Typ</code> i <code>Mobilny</code>
+    wczytanych plików. Kolumna „Wskaźnik” pokazuje, na co dana aktywność jest
+    przeliczana.</p>
+  <div class="przewijane">
+    <table>
+      <thead>
+        <tr><th>Typ z CRM</th><th>Kanał</th><th class="liczba">Ile</th>
+            <th>Okres w danych</th><th>Wskaźnik</th><th>Przypisz</th></tr>
+      </thead>
+      <tbody>
+      {% for t in typy %}
+        <tr>
+          <td><strong>{{ t.podtyp or '(puste)' }}</strong></td>
+          <td class="rola">{{ t.kanal }}</td>
+          <td class="liczba">{{ t.n }}</td>
+          <td class="notatka">{{ t.od }} – {{ t.do }}</td>
+          <td>
+            {% if t.nieprzypisany %}
+              <span class="odznaka slaba">nie liczy się</span>
+            {% else %}
+              <span class="odznaka dobra">{{ t.kod }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <form method="post" action="{{ url_for('zapisz_mapowanie') }}" class="pola"
+                  style="grid-template-columns: 1fr auto; gap:6px">
+              <input type="hidden" name="wzorzec" value="{{ (t.podtyp or t.kanal)|lower }}">
+              <select name="kod">
+                <option value="">— nie licz —</option>
+                {% for w in wskazniki %}
+                  <option value="{{ w.kod }}" {{ 'selected' if w.kod == t.kod }}>
+                    {{ w.kod }} — {{ w.nazwa }} ({{ w.punkty }} pkt)</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="wtorny">Zapisz</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="pusto">Brak danych — wczytaj najpierw eksport z CRM.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="karta">
+  <h2>Wszystkie reguły mapowania</h2>
+  <p class="notatka">Reguła dopasowuje się, gdy nazwa typu <em>zawiera</em> podany
+    fragment. Krótkie kody (do 4 znaków, np. <code>ACQ</code>, <code>VEN</code>)
+    muszą wystąpić jako osobne słowo, żeby nie łapały się w środku innych wyrazów.</p>
+  <div class="przewijane">
+    <table>
+      <thead><tr><th>Fragment nazwy</th><th>Wskaźnik</th><th>Opis</th>
+                 <th>Skąd</th><th></th></tr></thead>
+      <tbody>
+      {% for wzorzec, dane in mapowanie.items() %}
+        <tr>
+          <td><code>{{ wzorzec }}</code></td>
+          <td><span class="odznaka neutralna">{{ dane.kod }}</span></td>
+          <td class="notatka">{{ dane.opis }}</td>
+          <td>
+            {% if dane.zrodlo == 'domyslne' %}<span class="odznaka srednia">domyślne — sprawdź</span>
+            {% else %}<span class="odznaka dobra">Twoje</span>{% endif %}
+          </td>
+          <td>
+            <form method="post" action="{{ url_for('zapisz_mapowanie') }}">
+              <input type="hidden" name="wzorzec" value="{{ wzorzec }}">
+              <input type="hidden" name="kod" value="">
+              <button type="submit" class="groźny">Usuń</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Dodaj własną regułę</h3>
+  <form method="post" action="{{ url_for('zapisz_mapowanie') }}">
+    <div class="pola">
+      <div>
+        <label for="wzorzec">Fragment nazwy z CRM</label>
+        <input type="text" id="wzorzec" name="wzorzec" placeholder="np. acquisizione" required>
+      </div>
+      <div>
+        <label for="kod">Wskaźnik</label>
+        <select id="kod" name="kod">
+          {% for w in wskazniki %}
+            <option value="{{ w.kod }}">{{ w.kod }} — {{ w.nazwa }} ({{ w.punkty }} pkt)</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="opis">Opis (opcjonalnie)</label>
+        <input type="text" id="opis" name="opis">
+      </div>
+      <div><button type="submit">Dodaj regułę</button></div>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

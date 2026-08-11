@@ -112,9 +112,10 @@
           </select>
         </div>
         <div>
-          <label for="staz-{{ p.klucz }}">Staż (mies.)</label>
-          <input type="number" id="staz-{{ p.klucz }}" name="staz_miesiace" min="0"
-                 value="{{ p.staz_miesiace }}">
+          <label for="od-{{ p.klucz }}">Początek pracy</label>
+          <input type="date" id="od-{{ p.klucz }}" name="zatrudniony_od"
+                 value="{{ p.zatrudniony_od }}">
+          <span class="notatka">staż: {{ p.staz_opis }}{{ ' · nowicjusz' if p.nowicjusz }}</span>
         </div>
         <div>
           <label for="norma-{{ p.klucz }}">Norma dzienna</label>
@@ -140,6 +141,15 @@
         </div>
         <div><button type="submit">Zapisz</button></div>
       </div>
+    </form>
+    <form method="post" action="{{ url_for('usun_pracownika', klucz=p.klucz) }}"
+          onsubmit="return confirm('Usunąć {{ p.imie_nazwisko }}? Zaznacz „razem z danymi”, jeśli mają zniknąć także jego aktywności, zadania i raporty — tego nie da się cofnąć.')"
+          style="margin-top:-6px">
+      <label style="display:inline-flex; align-items:center; gap:6px; font-size:13px">
+        <input type="checkbox" name="z_danymi" value="1" style="width:auto">
+        razem z danymi (aktywności, zadania, raporty)
+      </label>
+      <button type="submit" class="groźny" style="margin-left:10px">Usuń pracownika</button>
     </form>
   {% else %}
     <p class="pusto">Brak pracowników. <a href="{{ url_for('wczytaj') }}">Wczytaj eksport z CRM</a>.</p>
