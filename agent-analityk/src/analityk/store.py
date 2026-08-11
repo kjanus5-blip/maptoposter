@@ -89,6 +89,14 @@ CREATE TABLE IF NOT EXISTS tematy_status (
     zmieniono TEXT
 );
 
+CREATE TABLE IF NOT EXISTS notatki_ocena (
+    aktywnosc_id TEXT PRIMARY KEY,
+    status TEXT NOT NULL DEFAULT 'nowa',   -- nowa | zaakceptowana | odrzucona
+    komentarz TEXT DEFAULT '',
+    zmieniono TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_notatki_status ON notatki_ocena(status);
+
 CREATE TABLE IF NOT EXISTS mapowanie_typow (
     wzorzec TEXT PRIMARY KEY,      -- fragment z kolumny Typ/Mobilny, małymi literami
     kod TEXT NOT NULL,             -- kod wskaźnika z punktacji
@@ -347,6 +355,58 @@ class Baza:
             (temat, status, notatka, datetime.now().isoformat(timespec="seconds")),
         )
         self.con.commit()
+
+    # --- ocena pojedynczych notatek ---------------------------------------
+
+    def oceny_notatek(self, status: str | None = None) -> dict[str, dict]:
+        sql = "SELECT * FROM notatki_ocena"
+        params: list = []
+        if status:
+            sql += " WHERE status = ?"
+            params.append(status)
+        return {
+            r["aktywnosc_id"]: {"status": r["status"], "komentarz": r["komentarz"] or ""}
+            for r in self.con.execute(sql, params)
+        }
+
+    def ustaw_ocene_notatki(self, aktywnosc_id: str, status: str,
+                            komentarz: str | None = None) -> None:
+        """Zapisuje decyzję o notatce.
+
+        `komentarz=None` znaczy „nie ruszaj komentarza” — pusty string znaczy
+        „skasuj go”. Bez tego rozróżnienia raz wpisanego komentarza nie dałoby
+        się już usunąć.
+        """
+        if komentarz is None:
+            self.con.execute(
+                """INSERT INTO notatki_ocena (aktywnosc_id, status, komentarz, zmieniono)
+                   VALUES (?,?,'',?)
+                   ON CONFLICT(aktywnosc_id) DO UPDATE SET
+                     status=excluded.status, zmieniono=excluded.zmieniono""",
+                (aktywnosc_id, status, datetime.now().isoformat(timespec="seconds")),
+            )
+        else:
+            self.con.execute(
+                """INSERT INTO notatki_ocena (aktywnosc_id, status, komentarz, zmieniono)
+                   VALUES (?,?,?,?)
+                   ON CONFLICT(aktywnosc_id) DO UPDATE SET
+                     status=excluded.status, komentarz=excluded.komentarz,
+                     zmieniono=excluded.zmieniono""",
+                (aktywnosc_id, status, komentarz,
+                 datetime.now().isoformat(timespec="seconds")),
+            )
+        self.con.commit()
+
+    def aktywnosci_po_id(self, identyfikatory: list[str]) -> dict[str, Activity]:
+        if not identyfikatory:
+            return {}
+        znaki = ",".join("?" * len(identyfikatory))
+        return {
+            r["id"]: self._na_activity(r)
+            for r in self.con.execute(
+                f"SELECT * FROM aktywnosci WHERE id IN ({znaki})", identyfikatory
+            )
+        }
 
     # --- mapowanie typów aktywności na wskaźniki --------------------------
 

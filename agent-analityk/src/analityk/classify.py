@@ -49,6 +49,11 @@ REGULY: dict[str, list[str]] = {
         r"\bpodal\w* numer",
     ],
     WYNIK_SYGNAL: [
+        r"\bplanuje sprzeda",
+        r"\bbedzie sie kontaktowa",
+        r"\bza \d+ lat",
+        r"\bmax za\b",
+        r"\bnie wyklucza",
         r"\bprzemysl",
         r"\bsie odezwie",
         r"\bchyba chciala",
@@ -90,6 +95,7 @@ REGULY: dict[str, list[str]] = {
         r"\bnie otworzyl",
         r"\bnie chcial\w* (za bardzo )?(gadac|rozmawiac)",
         r"\bzebym poszla sobie",
+        r"\bprzez drzwi",
         r"\bniemila",
         r"\bnie ufna",
     ],
@@ -103,6 +109,9 @@ REGULY: dict[str, list[str]] = {
         r"\bnie w planach",
         r"\bnie te czasy",
         r"\bnie jest zainteresowan",
+        r"\bniezainteresowan",
+        r"\bnie planuj",
+        r"\bdziekuje\b",       # pod drzwiami „dziękuję” to grzeczna odmowa
         r"\bn\w{0,3}e chce\b",  # tolerancja na literówki: "nioe chce", "nei chce"
     ],
     WYNIK_BRAK_INFO: [
@@ -137,7 +146,11 @@ PRIORYTET = [
 ]
 
 TAGI = {
-    "kontakt_pozytywny": [r"\bmila\b", r"\bbardzo mila", r"\bdziekuje", r"\bsympatyczn"],
+    # UWAGA: bez „dziękuję” — pod drzwiami to najczęstsza forma odmowy
+    # („nie, dziękuję”), a nie sygnał sympatii.
+    "kontakt_pozytywny": [r"\bbardzo mila", r"\bmila\b(?!.*\bnie chc)", r"\bsympatyczn",
+                          r"\bwzi\w+ (kartk|wizytowk|ulotk)",
+            r"\b(kartk|wizytowk|ulotk)\w* wzi\w+"],
     "kontakt_negatywny": [r"\bniemila", r"\brozlaczyl", r"\budawal", r"\bnie ufna"],
     "obiekcja_prowizja": [r"\bprowizj", r"\bze strony kupujacego"],
     "konkurencja": [r"\bktos do niej dzwonil", r"\bz nami gadal", r"\binna agencj", r"\bbiuro juz"],
@@ -148,7 +161,9 @@ TAGI = {
 }
 
 MATERIAL = [r"\bzostawi\w* .{0,20}wizytowk", r"\bwizytowk\w* w sms", r"\bzostawi\w* ulotk",
-            r"\bwizytowka przed klatka", r"\bzawisi na tablicy"]
+            r"\bwizytowka przed klatka", r"\bzawisi na tablicy",
+            r"\bwzi\w+ (kartk|wizytowk|ulotk)",
+            r"\b(kartk|wizytowk|ulotk)\w* wzi\w+"]
 
 KOLEJNY_KROK = [r"\bwroce\b", r"\bodezwe sie", r"\boddzwoni", r"\bumowi\w* sie",
                 r"\bza tydzien", r"\bza miesiac", r"\bmam wrocic", r"\bzadzwoni\w* pozniej",

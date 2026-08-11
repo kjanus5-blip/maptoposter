@@ -1,17 +1,29 @@
 {% extends "baza.html" %}
 {% block tytul %}Tematy — Agent Analityk{% endblock %}
 
+{# Jinja nie zna **kwargs w makrach, więc każdy filtr ma swój parametr;
+   „none” znaczy „zostaw jak jest”. #}
+{% macro filtr_url(nowa_etykieta=none, nowy_status=none, nowy_limit=none) %}
+  {{- url_for('widok_tematow',
+        okres=okres.typ, klucz=okres.klucz, pracownik=wybrany_pracownik or '',
+        etykieta=(wybrana_etykieta if nowa_etykieta is none else nowa_etykieta),
+        status=(wybrany_status if nowy_status is none else nowy_status),
+        limit=(limit if nowy_limit is none else nowy_limit)) -}}
+{% endmacro %}
+
 {% block tresc %}
 
 <div class="naglowek-strony">
   <h1>Tematy z notatek</h1>
-  <span class="podtytul">{{ okres.etykieta }} · {{ ile_aktywnosci }} aktywności</span>
+  <span class="podtytul">{{ okres.etykieta }} · {{ ile_aktywnosci }} aktywności ·
+    <a href="{{ url_for('widok_zaakceptowanych') }}">zaakceptowane ({{ liczniki.zaakceptowana }})</a></span>
 </div>
 
 <div class="karta">
   <form method="get" class="pola">
     <input type="hidden" name="okres" value="{{ okres.typ }}">
     <input type="hidden" name="klucz" value="{{ okres.klucz }}">
+    <input type="hidden" name="limit" value="{{ limit }}">
     <div>
       <label for="pracownik">Pracownik</label>
       <select id="pracownik" name="pracownik" onchange="this.form.submit()">
@@ -22,70 +34,119 @@
         {% endfor %}
       </select>
     </div>
-    <div><button type="submit">Pokaż</button></div>
+    <div>
+      <label for="etykieta">Etykieta</label>
+      <select id="etykieta" name="etykieta" onchange="this.form.submit()">
+        <option value="">wszystkie ({{ liczniki.wszystkie }})</option>
+        {% for nazwa, ile in etykiety %}
+          <option value="{{ nazwa }}" {{ 'selected' if nazwa == wybrana_etykieta }}>
+            {{ nazwa|etykieta }} ({{ ile }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="status">Status</label>
+      <select id="status" name="status" onchange="this.form.submit()">
+        <option value="nowa" {{ 'selected' if wybrany_status == 'nowa' }}>
+          do przejrzenia ({{ liczniki.nowa }})</option>
+        <option value="zaakceptowana" {{ 'selected' if wybrany_status == 'zaakceptowana' }}>
+          zaakceptowane ({{ liczniki.zaakceptowana }})</option>
+        <option value="odrzucona" {{ 'selected' if wybrany_status == 'odrzucona' }}>
+          odrzucone ({{ liczniki.odrzucona }})</option>
+        <option value="wszystkie" {{ 'selected' if wybrany_status == 'wszystkie' }}>
+          wszystkie ({{ liczniki.wszystkie }})</option>
+      </select>
+    </div>
+    <div><button type="submit">Filtruj</button></div>
   </form>
-  <p class="notatka" style="margin-top:10px">
-    {% if pokaz_odrzucone %}
-      <a href="{{ url_for('widok_tematow', okres=okres.typ, klucz=okres.klucz,
-                          pracownik=wybrany_pracownik) }}">Ukryj odrzucone tematy</a>
-    {% else %}
-      <a href="{{ url_for('widok_tematow', okres=okres.typ, klucz=okres.klucz,
-                          pracownik=wybrany_pracownik, odrzucone='1') }}">Pokaż także ukryte tematy</a>
-    {% endif %}
-  </p>
+  {% if wybrana_etykieta %}
+    <p class="notatka" style="margin-top:10px">
+      Filtr etykiety: <strong>{{ wybrana_etykieta|etykieta }}</strong> ·
+      <a href="{{ filtr_url(nowa_etykieta='') }}">pokaż wszystkie etykiety</a>
+    </p>
+  {% endif %}
 </div>
 
 {% if not lista %}
-  <div class="karta"><p class="pusto">Za mało danych, żeby cokolwiek się powtórzyło.</p></div>
+  <div class="karta">
+    <p class="pusto">Nic tu nie ma przy tych filtrach. Spróbuj zmienić status na
+      „wszystkie” albo poszerzyć okres u góry strony.</p>
+  </div>
 {% endif %}
 
-{% for t in lista %}
+{% for o in lista %}
   <div class="karta">
-    <h2>{{ t.temat.replace('_', ' ')|capitalize }}
-      <span class="rola">· {{ t.ile }} × ({{ t.udzial_proc }}% kontaktów)</span>
-      {% if t.status == 'sledzony' %}<span class="odznaka dobra">śledzony</span>
-      {% elif t.status == 'odrzucony' %}<span class="odznaka slaba">ukryty</span>{% endif %}
+    <h2 style="margin-bottom:8px">
+      {{ o.aktywnosc.budynek }} {{ o.aktywnosc.lokal }}
+      {% if not o.aktywnosc.budynek %}<span class="rola">bez adresu</span>{% endif %}
+      {% if o.status == 'zaakceptowana' %}<span class="odznaka dobra">zaakceptowana</span>
+      {% elif o.status == 'odrzucona' %}<span class="odznaka slaba">odrzucona</span>{% endif %}
     </h2>
-    {% if t.budynki %}
-      <p class="notatka">Budynki: {{ t.budynki[:10]|join(', ') }}</p>
-    {% endif %}
-    <ul class="lista-czysta">
-      {% for p in t.przyklady %}
-        <li><strong>{{ p.adres or '—' }}</strong> — {{ p.notatka }}</li>
+    <p class="notatka" style="margin:0 0 8px">
+      {{ o.aktywnosc.data.strftime('%d.%m.%Y %H:%M') }} ·
+      <a href="{{ url_for('widok_pracownika', klucz=o.aktywnosc.pracownik) }}">
+        {{ o.aktywnosc.pracownik_nazwa }}</a> ·
+      {{ o.aktywnosc.podtyp or o.aktywnosc.kanal }}
+    </p>
+    <p style="margin:0 0 10px">{{ o.aktywnosc.notatka }}</p>
+    <p style="margin:0 0 12px">
+      {% for e in o.etykiety %}
+        <a href="{{ filtr_url(nowa_etykieta=e) }}" class="odznaka neutralna"
+           style="margin-right:6px">{{ e|etykieta }}</a>
       {% endfor %}
-    </ul>
-    <form method="post" action="{{ url_for('zmien_status_tematu', temat=t.temat) }}"
-          style="margin-top:12px">
+    </p>
+
+    <form method="post"
+          action="{{ url_for('ocen_notatke', aktywnosc_id=o.aktywnosc.id) }}">
       <input type="hidden" name="powrot" value="{{ request.full_path }}">
       <div class="pola">
         <div style="grid-column: span 2">
-          <label for="notatka-{{ t.temat }}">Notatka (np. co z tym robimy)</label>
-          <input type="text" id="notatka-{{ t.temat }}" name="notatka"
-                 value="{{ t.notatka_wlasna }}"
-                 placeholder="np. skrypt odpowiedzi na odprawę 20.08">
+          <label for="k-{{ loop.index }}">Komentarz (np. co z tym robimy)</label>
+          <input type="text" id="k-{{ loop.index }}" name="komentarz"
+                 value="{{ o.komentarz }}"
+                 placeholder="np. oddzwonić po 20.08, właściciel po spadku">
         </div>
         <div>
-          {% if t.status == 'sledzony' %}
-            <button type="submit" name="status" value="nowy" class="wtorny">Przestań śledzić</button>
+          {% if o.status == 'zaakceptowana' %}
+            <button type="submit" name="status" value="nowa" class="wtorny">Cofnij do przeglądu</button>
           {% else %}
-            <button type="submit" name="status" value="sledzony">Śledzę ten temat</button>
+            <button type="submit" name="status" value="zaakceptowana">Akceptuj</button>
           {% endif %}
         </div>
         <div>
-          <button type="submit" name="status" value="odrzucony" class="groźny">Ukryj</button>
+          {% if o.status == 'odrzucona' %}
+            <button type="submit" name="status" value="nowa" class="wtorny">Przywróć</button>
+          {% else %}
+            <button type="submit" name="status" value="odrzucona" class="wtorny">Odrzuć</button>
+          {% endif %}
         </div>
       </div>
     </form>
   </div>
 {% endfor %}
 
+{% if limit > 0 and ile_pasujacych > lista|length %}
+  <div class="karta">
+    <p class="notatka">Pokazane {{ lista|length }} z {{ ile_pasujacych }} notatek.
+      <a href="{{ filtr_url(nowy_limit=limit + 50) }}">Pokaż 50 więcej</a> ·
+      <a href="{{ filtr_url(nowy_limit=0) }}">pokaż wszystkie ({{ ile_pasujacych }})</a>
+    </p>
+  </div>
+{% elif lista %}
+  <div class="karta">
+    <p class="notatka">To wszystkie {{ ile_pasujacych }} notatek przy tych filtrach.</p>
+  </div>
+{% endif %}
+
 <div class="karta">
   <h2>Po co to jest</h2>
-  <p class="notatka">To są zdania, które zespół naprawdę słyszy pod drzwiami —
-    gotowy materiał na szkolenie i na skrypty odpowiedzi. „Obiekcja prowizji”
-    powtórzona 12 razy to konkretny temat na najbliższą odprawę, a nie ogólnik
-    z kursu. Wątki takie jak pustostany czy spadki to z kolei najcenniejsze
-    sygnały w pozyskiwaniu — warto je obrabiać osobno.</p>
+  <p class="notatka">Każda notatka z etykietą przechodzi tu przez Twoją decyzję.
+    <strong>Akceptuj</strong> znaczy „to jest coś warte roboty” — notatka trafia
+    na osobną listę <a href="{{ url_for('widok_zaakceptowanych') }}">zaakceptowanych</a>,
+    która nie zależy od wybranego okresu, więc nic z niej nie ucieka przy zmianie
+    tygodnia. <strong>Odrzuć</strong> znaczy „reguła się pomyliła albo nic z tego
+    nie wynika” — notatka znika z przeglądu, ale zostaje w statystykach.
+    Etykiety są klikalne: klik filtruje listę do jednego wątku.</p>
 </div>
 
 {% endblock %}

@@ -68,7 +68,9 @@ from ..zadania import (
     NAZWY_ZADAN,
     STATUS_ANULOWANE,
     STATUS_ZROBIONE,
-    tematy,
+    dostepne_etykiety,
+    obserwacje,
+    opis_etykiety,
     wykryj_w_aktywnosciach,
 )
 from ..store import Baza
@@ -79,12 +81,16 @@ NAZWY_OKRESOW = {
     "kwartal": "Kwartał", "rok": "Rok",
 }
 
+#: Ile notatek pokazujemy od razu; `limit=0` w adresie zdejmuje ograniczenie.
+DOMYSLNY_LIMIT_NOTATEK = 50
+
 
 def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
     app = Flask(__name__)
     app.secret_key = secrets.token_hex(16)
     app.config["SCIEZKA_BAZY"] = sciezka_bazy
     app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
+    app.jinja_env.filters["etykieta"] = opis_etykiety
 
     def baza() -> Baza:
         """Jedno połączenie na żądanie, zamykane w `teardown`.
@@ -408,26 +414,88 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
 
     @app.route("/tematy")
     def widok_tematow():
+        """Notatka po notatce — każda do zaakceptowania albo odrzucenia.
+
+        Wcześniej strona grupowała notatki po temacie i pokazywała po kilka
+        przykładów. Do liczenia to było dobre, do pracy nie: nie dało się
+        odhaczyć pojedynczej notatki ani zobaczyć reszty listy.
+        """
         b = baza()
         o = kontekst_okresu()
         pracownik = request.args.get("pracownik") or None
+        etykieta = request.args.get("etykieta") or ""
+        status = request.args.get("status") or "nowa"
         akt = b.pobierz(pracownik=pracownik, od=o["od"], do=o["do"])
-        statusy = b.status_tematow()
-        lista = tematy(akt, min_wystapien=2)
-        pokaz_odrzucone = request.args.get("odrzucone") == "1"
-        for t in lista:
-            t["status"] = statusy.get(t["temat"], {}).get("status", "nowy")
-            t["notatka_wlasna"] = statusy.get(t["temat"], {}).get("notatka", "")
-        if not pokaz_odrzucone:
-            lista = [t for t in lista if t["status"] != "odrzucony"]
+
+        oceny = b.oceny_notatek()
+        wszystkie = obserwacje(akt)
+        for ob in wszystkie:
+            ocena = oceny.get(ob["aktywnosc"].id, {})
+            ob["status"] = ocena.get("status", "nowa")
+            ob["komentarz"] = ocena.get("komentarz", "")
+
+        # liczniki statusów liczymy przed filtrem, żeby zakładki nie znikały
+        liczniki = {"wszystkie": len(wszystkie)}
+        for nazwa in ("nowa", "zaakceptowana", "odrzucona"):
+            liczniki[nazwa] = sum(1 for ob in wszystkie if ob["status"] == nazwa)
+
+        lista = wszystkie
+        if status != "wszystkie":
+            lista = [ob for ob in lista if ob["status"] == status]
+        if etykieta:
+            lista = [ob for ob in lista if etykieta in ob["etykiety"]]
+
+        # domyślnie skracamy listę, ale zawsze da się ją rozwinąć do końca
+        limit = request.args.get("limit", type=int) or DOMYSLNY_LIMIT_NOTATEK
+        widoczne = lista if limit <= 0 else lista[:limit]
         return render_template(
             "tematy.html",
-            lista=lista,
-            pokaz_odrzucone=pokaz_odrzucone,
+            lista=widoczne,
+            ile_pasujacych=len(lista),
+            liczniki=liczniki,
+            limit=limit,
+            etykiety=dostepne_etykiety(akt),
+            wybrana_etykieta=etykieta,
+            wybrany_status=status,
             ile_aktywnosci=len(akt),
             pracownicy=b.pracownicy(),
             wybrany_pracownik=pracownik,
         )
+
+    @app.route("/tematy/zaakceptowane")
+    def widok_zaakceptowanych():
+        """Robocza lista tego, co przeszło przez akceptację.
+
+        Celowo bez filtra okresu: zaakceptowana notatka to zadanie do
+        obrobienia, a nie statystyka miesiąca — nie może zniknąć tylko
+        dlatego, że u góry przełączono tydzień.
+        """
+        b = baza()
+        oceny = b.oceny_notatek("zaakceptowana")
+        aktywnosci = b.aktywnosci_po_id(list(oceny))
+        lista = obserwacje(list(aktywnosci.values()))
+        for ob in lista:
+            ob["status"] = "zaakceptowana"
+            ob["komentarz"] = oceny.get(ob["aktywnosc"].id, {}).get("komentarz", "")
+        # notatka mogła stracić etykiety po zmianie reguł — i tak ją pokazujemy
+        znane = {ob["aktywnosc"].id for ob in lista}
+        for id_akt, a in aktywnosci.items():
+            if id_akt not in znane:
+                lista.append({"aktywnosc": a, "etykiety": [], "status": "zaakceptowana",
+                              "komentarz": oceny.get(id_akt, {}).get("komentarz", "")})
+        return render_template("tematy_zaakceptowane.html", lista=lista)
+
+    @app.post("/tematy/notatka/<path:aktywnosc_id>/ocena")
+    def ocen_notatke(aktywnosc_id: str):
+        b = baza()
+        status = request.form.get("status", "zaakceptowana")
+        if status not in ("nowa", "zaakceptowana", "odrzucona"):
+            status = "nowa"
+        b.ustaw_ocene_notatki(aktywnosc_id, status, request.form.get("komentarz"))
+        flash({"zaakceptowana": "Notatka trafiła do zaakceptowanych.",
+               "odrzucona": "Notatka odrzucona.",
+               "nowa": "Notatka wróciła do przeglądu."}[status], "ok")
+        return redirect(request.form.get("powrot") or url_for("widok_tematow"))
 
     @app.route("/typy")
     def widok_typow():
@@ -510,18 +578,6 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
             opis = f" ({', '.join(dodatki)})" if dodatki else ""
             flash(f"Zapisano: „{wzorzec}”{opis} → {kod}.", "ok")
         return redirect(url_for("widok_typow"))
-
-    @app.post("/tematy/<path:temat>/status")
-    def zmien_status_tematu(temat: str):
-        b = baza()
-        status = request.form.get("status", "sledzony")
-        if status not in ("nowy", "sledzony", "odrzucony"):
-            status = "nowy"
-        b.ustaw_status_tematu(temat, status, request.form.get("notatka", ""))
-        flash({"sledzony": f"Temat „{temat}” trafił do śledzonych.",
-               "odrzucony": f"Temat „{temat}” ukryty.",
-               "nowy": f"Temat „{temat}” wrócił do nowych."}[status], "ok")
-        return redirect(request.form.get("powrot") or url_for("widok_tematow"))
 
     # --- organizacja ------------------------------------------------------
 

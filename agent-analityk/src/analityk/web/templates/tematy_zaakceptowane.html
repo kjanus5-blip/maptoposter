@@ -1,0 +1,64 @@
+{% extends "baza.html" %}
+{% block tytul %}Zaakceptowane notatki — Agent Analityk{% endblock %}
+{% block pasek_okresu %}{% endblock %}
+
+{% block tresc %}
+
+<div class="naglowek-strony">
+  <h1>Zaakceptowane notatki</h1>
+  <span class="podtytul">{{ lista|length }} pozycji ·
+    <a href="{{ url_for('widok_tematow') }}">wróć do przeglądu</a></span>
+</div>
+
+{% if not lista %}
+  <div class="karta">
+    <p class="pusto">Jeszcze nic nie zaakceptowano. Wejdź w
+      <a href="{{ url_for('widok_tematow') }}">Tematy</a> i przejrzyj notatki.</p>
+  </div>
+{% endif %}
+
+{% for o in lista %}
+  <div class="karta">
+    <h2 style="margin-bottom:8px">
+      {{ o.aktywnosc.budynek }} {{ o.aktywnosc.lokal }}
+      {% if not o.aktywnosc.budynek %}<span class="rola">bez adresu</span>{% endif %}
+    </h2>
+    <p class="notatka" style="margin:0 0 8px">
+      {{ o.aktywnosc.data.strftime('%d.%m.%Y %H:%M') }} ·
+      <a href="{{ url_for('widok_pracownika', klucz=o.aktywnosc.pracownik) }}">
+        {{ o.aktywnosc.pracownik_nazwa }}</a> ·
+      {{ o.aktywnosc.podtyp or o.aktywnosc.kanal }}
+    </p>
+    <p style="margin:0 0 10px">{{ o.aktywnosc.notatka }}</p>
+    {% if o.etykiety %}
+      <p style="margin:0 0 12px">
+        {% for e in o.etykiety %}
+          <span class="odznaka neutralna" style="margin-right:6px">{{ e|etykieta }}</span>
+        {% endfor %}
+      </p>
+    {% endif %}
+    {% if o.komentarz %}
+      <p style="margin:0 0 12px"><strong>Twój komentarz:</strong> {{ o.komentarz }}</p>
+    {% endif %}
+
+    <form method="post"
+          action="{{ url_for('ocen_notatke', aktywnosc_id=o.aktywnosc.id) }}">
+      <input type="hidden" name="powrot" value="{{ request.full_path }}">
+      <div class="pola">
+        <div style="grid-column: span 2">
+          <label for="k-{{ loop.index }}">Komentarz</label>
+          <input type="text" id="k-{{ loop.index }}" name="komentarz"
+                 value="{{ o.komentarz }}" placeholder="co z tym robimy">
+        </div>
+        <div>
+          <button type="submit" name="status" value="zaakceptowana" class="wtorny">Zapisz komentarz</button>
+        </div>
+        <div>
+          <button type="submit" name="status" value="nowa" class="wtorny">Zdejmij z listy</button>
+        </div>
+      </div>
+    </form>
+  </div>
+{% endfor %}
+
+{% endblock %}

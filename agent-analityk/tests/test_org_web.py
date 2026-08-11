@@ -321,6 +321,50 @@ class TestPanelWWW(unittest.TestCase):
         self.assertEqual(mapowanie["moja regula"]["kod"], "NO10")   # własna nietknięta
         self.assertIn("ricerca", mapowanie)                   # nowe domyślne wgrane
 
+    def test_tematy_pokazuja_pojedyncze_notatki(self):
+        tresc = self.c.get("/tematy?okres=miesiac").get_data(as_text=True)
+        self.assertIn("Akceptuj", tresc)
+        self.assertIn("Odrzuć", tresc)
+
+    def _pierwsza_notatka(self) -> str:
+        from analityk.store import Baza as B
+        baza = B(self.app.config["SCIEZKA_BAZY"])
+        akt_id = next(a.id for a in baza.pobierz() if a.wynik == "lead")
+        baza.zamknij()
+        return akt_id
+
+    def test_akceptacja_przenosi_notatke_na_osobna_podstrone(self):
+        akt_id = self._pierwsza_notatka()
+        odp = self.c.post(f"/tematy/notatka/{akt_id}/ocena",
+                          data={"status": "zaakceptowana", "komentarz": "oddzwonić"},
+                          follow_redirects=True)
+        self.assertEqual(odp.status_code, 200)
+        tresc = self.c.get("/tematy/zaakceptowane").get_data(as_text=True)
+        self.assertIn("oddzwonić", tresc)
+
+    def test_odrzucona_znika_z_przegladu_ale_zostaje_pod_filtrem(self):
+        akt_id = self._pierwsza_notatka()
+        self.c.post(f"/tematy/notatka/{akt_id}/ocena", data={"status": "odrzucona"})
+        przeglad = self.c.get("/tematy?okres=miesiac&limit=0").get_data(as_text=True)
+        odrzucone = self.c.get(
+            "/tematy?okres=miesiac&limit=0&status=odrzucona").get_data(as_text=True)
+        self.assertNotIn(akt_id, przeglad)
+        self.assertIn(akt_id, odrzucone)
+
+    def test_limit_da_sie_zdjac(self):
+        """Skrócona lista musi mieć wyjście — inaczej reszty notatek nie widać."""
+        krotka = self.c.get("/tematy?okres=rok&limit=1").get_data(as_text=True)
+        self.assertIn("pokaż wszystkie", krotka)
+        pelna = self.c.get("/tematy?okres=rok&limit=0").get_data(as_text=True)
+        self.assertGreater(pelna.count("Akceptuj"), krotka.count("Akceptuj"))
+
+    def test_filtr_etykiety_zaweza_liste(self):
+        wszystko = self.c.get("/tematy?okres=rok&limit=0").get_data(as_text=True)
+        self.assertIn("Lead", wszystko)
+        pusto = self.c.get(
+            "/tematy?okres=rok&limit=0&etykieta=pustostan").get_data(as_text=True)
+        self.assertIn("Nic tu nie ma przy tych filtrach", pusto)
+
     def test_pusta_baza(self):
         with tempfile.TemporaryDirectory() as pusty:
             from analityk.web import stworz_aplikacje

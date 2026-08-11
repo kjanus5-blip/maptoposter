@@ -22,6 +22,9 @@ from analityk.zadania import (  # noqa: E402
     ZAD_SPOTKANIE,
     ZAD_WYSLAC,
     rozwiaz_termin,
+    dostepne_etykiety,
+    obserwacje,
+    opis_etykiety,
     tematy,
     wykryj_w_aktywnosciach,
     wykryj_zadania,
@@ -217,6 +220,45 @@ class TestTematy(unittest.TestCase):
         aktywnosci = sklasyfikuj([akt("Wygląda na puste, listy w skrzynkach")])
         self.assertEqual(tematy(aktywnosci, min_wystapien=2), [])
         self.assertTrue(tematy(aktywnosci, min_wystapien=1))
+
+
+class TestObserwacje(unittest.TestCase):
+    """Lista notatka po notatce — do akceptacji albo odrzucenia."""
+
+    def test_kazda_notatka_to_osobna_pozycja(self):
+        aktywnosci = sklasyfikuj([
+            akt("Wygląda na puste, listy w skrzynkach", lokal="1"),
+            akt("Wygląda na puste, listy w skrzynkach", lokal="2"),
+        ])
+        lista = obserwacje(aktywnosci)
+        self.assertEqual(len(lista), 2)                      # nie jedna zbiorcza
+        self.assertIn("pustostan", lista[0]["etykiety"])
+
+    def test_notatka_bez_etykiet_wypada(self):
+        self.assertEqual(obserwacje(sklasyfikuj([akt("Nikogo nie zastałem")])), [])
+
+    def test_sygnal_sprzedazy_stoi_nad_uprzejmoscia(self):
+        """Realny sygnał nie może utonąć pod „kontaktem pozytywnym”."""
+        aktywnosci = sklasyfikuj([
+            akt("Pani bardzo miła, kartkę wzięła", lokal="1"),
+            akt("Planuje sprzedać ale max za 2 lata", lokal="2"),
+        ])
+        lista = obserwacje(aktywnosci)
+        self.assertEqual(lista[0]["aktywnosc"].lokal, "2")
+        self.assertIn("sygnal", lista[0]["etykiety"])
+
+    def test_etykiety_do_filtra_maja_licznosci(self):
+        aktywnosci = sklasyfikuj([
+            akt("Wygląda na puste, listy w skrzynkach", lokal="1"),
+            akt("Wygląda na puste, listy w skrzynkach", lokal="2"),
+            akt("Pan nie zapłaci prowizji", lokal="3"),
+        ])
+        self.assertEqual(dict(dostepne_etykiety(aktywnosci))["pustostan"], 2)
+        self.assertEqual(dict(dostepne_etykiety(aktywnosci))["obiekcja_prowizja"], 1)
+
+    def test_nazwy_etykiet_sa_po_polsku(self):
+        self.assertEqual(opis_etykiety("obiekcja_prowizja"), "Obiekcja: prowizja")
+        self.assertEqual(opis_etykiety("cos_nowego"), "Cos nowego")   # bez wywrotki
 
 
 if __name__ == "__main__":

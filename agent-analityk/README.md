@@ -72,12 +72,18 @@ Dalej klikaj:
    dzień/tydzień/miesiąc/kwartał/rok jest na górze każdej strony.
 4. **Do zrobienia** — kolejka follow-upów wyłapanych automatycznie z notatek,
    pogrupowana: po terminie / na dziś / ten tydzień / później / bez terminu.
-5. **Tematy** — powtarzające się wątki i obiekcje z notatek; każdy można
-   wziąć na śledzenie (z własną notatką) albo ukryć.
-6. **Typy aktywności** — decydujesz, które typy z kolumny „Typ”/„Mobilny”
+5. **Tematy** — notatka po notatce, każda z etykietami (lead, sygnał,
+   obiekcja prowizji, pustostan, spadek…). Każdą **akceptujesz** albo
+   **odrzucasz**, możesz dopisać komentarz, a filtry zawężają listę po
+   etykiecie, osobie i statusie. Lista jest skrócona do 50 pozycji, ale
+   zawsze da się ją rozwinąć do końca.
+6. **Zaakceptowane** — osobna lista tego, co przeszło akceptację. Celowo
+   nie zależy od wybranego okresu: zaakceptowana notatka to robota do
+   zrobienia, a nie statystyka miesiąca, więc nie znika przy zmianie tygodnia.
+7. **Typy aktywności** — decydujesz, które typy z kolumny „Typ”/„Mobilny”
    liczą się do których wskaźników punktacji. Typy niezmapowane są wyraźnie
    oznaczone, żeby ich punkty nie przepadały niezauważone.
-7. **Karta pracownika** — pełne rozbicie punktów, porównanie z grupą,
+8. **Karta pracownika** — pełne rozbicie punktów, porównanie z grupą,
    wykresy, zadania, leady do dopilnowania, pamięć agenta i przycisk
    generowania oceny AI.
 
@@ -102,6 +108,18 @@ Klucza wymaga wyłącznie ocena opisowa („mocne strony / do poprawy / plan").
 
 Plik `.env` jest w `.gitignore` — klucz nie trafi do repozytorium. Jeśli masz
 `ANTHROPIC_API_KEY` ustawiony w systemie, ma on pierwszeństwo przed plikiem.
+
+### Ile to kosztuje
+
+API rozlicza się osobno od abonamentu, przedpłatą, za zużyte tokeny. Jedna
+ocena to mniej więcej 10–20 tys. tokenów wejścia i 1–2 tys. wyjścia. Przy
+kilku osobach i ocenie tygodniowej plus miesięcznej to rząd wielkości
+**kilku dolarów miesięcznie** — cała reszta programu (liczby, punkty,
+rankingi, zadania, tematy) nie dotyka API i nie kosztuje nic.
+
+Doładuj małą kwotę i **wyłącz automatyczne doładowanie** — wtedy górna
+granica wydatku jest z góry znana. Aktualne stawki:
+[anthropic.com/pricing](https://www.anthropic.com/pricing).
 
 ## Aktualizacja
 

@@ -359,6 +359,62 @@ def wykryj_w_aktywnosciach(aktywnosci: list[Activity]) -> list[Zadanie]:
 
 # --- tematy ---------------------------------------------------------------
 
+#: Wyniki, które same w sobie są tematem wartym przejrzenia.
+WYNIKI_TEMATYCZNE = ("lead", "sygnal", "info_rynkowe")
+
+#: Nazwy etykiet po ludzku — w filtrach i na liście notatek.
+OPISY_ETYKIET = {
+    "lead": "Lead",
+    "sygnal": "Sygnał sprzedaży",
+    "info_rynkowe": "Informacja rynkowa",
+    "kontakt_pozytywny": "Kontakt pozytywny",
+    "kontakt_negatywny": "Kontakt negatywny",
+    "obiekcja_prowizja": "Obiekcja: prowizja",
+    "konkurencja": "Konkurencja",
+    "pustostan": "Pustostan",
+    "spadek": "Spadek",
+    "bariera_jezykowa": "Bariera językowa",
+    "odeslano_gdzie_indziej": "Odesłano gdzie indziej",
+}
+
+
+def opis_etykiety(etykieta: str) -> str:
+    return OPISY_ETYKIET.get(etykieta, etykieta.replace("_", " ").capitalize())
+
+
+def obserwacje(aktywnosci: list[Activity]) -> list[dict]:
+    """Pojedyncze notatki warte przejrzenia — po jednej pozycji na notatkę.
+
+    Grupowanie po temacie było wygodne do liczenia, ale nie do pracy: żeby
+    odhaczyć jedną notatkę, trzeba było zaakceptować albo odrzucić cały wątek.
+    Tutaj każda notatka jest osobną pozycją i sama nosi swoje etykiety.
+    """
+    wynik = []
+    for a in aktywnosci:
+        etykiety = list(a.tagi)
+        if a.wynik in WYNIKI_TEMATYCZNE:
+            etykiety.insert(0, a.wynik)
+        if not etykiety:
+            continue
+        wynik.append({
+            "aktywnosc": a,
+            "etykiety": etykiety,
+            "waga": (0 if a.wynik == "lead" else 1 if a.wynik == "sygnal" else 2),
+        })
+    # najpierw leady i sygnały, potem reszta — w każdej grupie od najnowszych
+    wynik.sort(key=lambda o: (o["waga"], -o["aktywnosc"].data.timestamp()))
+    return wynik
+
+
+def dostepne_etykiety(aktywnosci: list[Activity]) -> list[tuple[str, int]]:
+    """Wszystkie etykiety obecne w danych wraz z licznością — do filtra."""
+    licznik: dict[str, int] = {}
+    for o in obserwacje(aktywnosci):
+        for e in o["etykiety"]:
+            licznik[e] = licznik.get(e, 0) + 1
+    return sorted(licznik.items(), key=lambda x: -x[1])
+
+
 def tematy(aktywnosci: list[Activity], min_wystapien: int = 2) -> list[dict]:
     """Powtarzające się wątki z notatek — materiał na szkolenie i na skrypty.
 

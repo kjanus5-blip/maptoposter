@@ -343,6 +343,25 @@ class TestKonfiguracjaWBazie(unittest.TestCase):
         self.baza.ustaw_status_tematu("pustostan", "odrzucony")
         self.assertEqual(self.baza.status_tematow()["pustostan"]["status"], "odrzucony")
 
+    def test_ocena_pojedynczej_notatki(self):
+        self.baza.ustaw_ocene_notatki("akt-1", "zaakceptowana", "oddzwonić 20.08")
+        oceny = self.baza.oceny_notatek()
+        self.assertEqual(oceny["akt-1"]["status"], "zaakceptowana")
+        self.assertEqual(oceny["akt-1"]["komentarz"], "oddzwonić 20.08")
+        self.assertEqual(list(self.baza.oceny_notatek("odrzucona")), [])
+
+    def test_zmiana_statusu_nie_gubi_komentarza(self):
+        """Przyciski bez pola komentarza mają go zostawić w spokoju…"""
+        self.baza.ustaw_ocene_notatki("akt-1", "zaakceptowana", "oddzwonić")
+        self.baza.ustaw_ocene_notatki("akt-1", "nowa")
+        self.assertEqual(self.baza.oceny_notatek()["akt-1"]["komentarz"], "oddzwonić")
+
+    def test_pusty_komentarz_da_sie_skasowac(self):
+        """…ale wyczyszczone pole formularza ma naprawdę czyścić."""
+        self.baza.ustaw_ocene_notatki("akt-1", "zaakceptowana", "oddzwonić")
+        self.baza.ustaw_ocene_notatki("akt-1", "zaakceptowana", "")
+        self.assertEqual(self.baza.oceny_notatek()["akt-1"]["komentarz"], "")
+
     def test_usuniecie_pracownika_bez_danych(self):
         self.baza.zapisz_pracownika(Pracownik(klucz="a", imie_nazwisko="A"))
         self.baza.zapisz_aktywnosci([akt("RICERCA", i=1)])
