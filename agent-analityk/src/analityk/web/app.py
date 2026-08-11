@@ -64,6 +64,7 @@ from ..punktacja import (
     niezmapowane_typy,
     wskazniki_dla_roli,
 )
+from ..raport_html import zbuduj_raport_html
 from ..report import ETYKIETY_WYNIKOW, zbuduj_raport
 from ..zadania import (
     NAZWY_ZADAN,
@@ -75,7 +76,7 @@ from ..zadania import (
     wykryj_w_aktywnosciach,
 )
 from ..store import Baza
-from . import charts
+from .. import charts
 
 NAZWY_OKRESOW = {
     "dzien": "Dzień", "tydzien": "Tydzień", "miesiac": "Miesiąc",
@@ -425,6 +426,26 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
             p=p, lista=lista, liczniki=liczniki, wybrany_status=status,
             zakladki=_zakladki(b, klucz, o),
         )
+
+    @app.route("/pracownik/<klucz>/raport.html")
+    def raport_html(klucz: str):
+        """Ładny, samodzielny raport do wydruku albo zapisania do PDF."""
+        b = baza()
+        o = kontekst_okresu()
+        p = b.pracownik_lub_domyslny(klucz)
+        akt, m = metryki_pracownika(b, p, o["typ"], o["klucz"])
+        _, m_poprz = metryki_pracownika(b, p, o["typ"], o["poprzedni"])
+        grupy = [] if m.get("pusty") else grupy_porownawcze(b, p, o["typ"], o["klucz"], m)
+        zapisany = b.raport(klucz, o["typ"], o["klucz"]) or {}
+        tresc = zbuduj_raport_html(
+            p, o["typ"], o["klucz"], m, akt, m_poprz, zapisany.get("ocena"),
+            b.pamiec(klucz, limit=10), grupy, etykieta_okresu_=o["etykieta"],
+        )
+        if request.args.get("pobierz") == "1":
+            return Response(tresc, mimetype="text/html; charset=utf-8", headers={
+                "Content-Disposition":
+                    f'attachment; filename="{klucz}_{o["typ"]}_{o["klucz"]}.html"'})
+        return Response(tresc, mimetype="text/html; charset=utf-8")
 
     @app.route("/pracownik/<klucz>/raport.md")
     def raport_md(klucz: str):

@@ -83,7 +83,11 @@ Dalej klikaj:
 7. **Typy aktywności** — decydujesz, które typy z kolumny „Typ”/„Mobilny”
    liczą się do których wskaźników punktacji. Typy niezmapowane są wyraźnie
    oznaczone, żeby ich punkty nie przepadały niezauważone.
-8. **Karta pracownika** — trzy zakładki: *Przegląd* (punkty, porównanie z
+8. **Raport do druku / PDF** — przycisk na karcie pracownika otwiera raport
+   jako gotową stronę: kafle z liczbami, wykresy, paski postępu, pozycja na
+   tle grupy. Wszystko w jednym pliku, bez internetu — `Cmd+P` → *Zapisz jako
+   PDF* daje dokument na rozmowę 1:1. Wersja `.md` została do archiwum.
+9. **Karta pracownika** — trzy zakładki: *Przegląd* (punkty, porównanie z
    grupą, wykresy, alerty, pamięć agenta, ocena AI), *Do zrobienia* (jego
    follow-upy) i *Tematy* (jego notatki do akceptacji). Przy zakładkach widać
    liczbę otwartych pozycji.
@@ -162,7 +166,7 @@ Podgląd promptu bez płacenia za wywołanie API: dodaj `--pokaz-prompt`.
 | Komenda | Do czego |
 |---|---|
 | `wczytaj PLIK...` | wczytuje eksporty (PDF/CSV/XLSX); ponowne wczytanie tego samego pliku nie tworzy duplikatów |
-| `raport --pracownik X --okres dzien\|tydzien\|miesiac\|kwartal\|rok` | pełny raport pracownika |
+| `raport --pracownik X --okres dzien\|tydzien\|miesiac\|kwartal\|rok` | pełny raport pracownika (`--html` = wersja do druku/PDF) |
 | `metryki --pracownik X --okres ...` | surowe liczby w JSON (do Excela, BI, własnych wykresów) |
 | `zespol --okres ...` | ranking biur i pracowników + wszystkie alerty |
 | `serwer` | panel WWW (`--host`, `--port`) |

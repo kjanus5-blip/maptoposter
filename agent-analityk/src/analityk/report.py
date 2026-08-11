@@ -10,6 +10,8 @@ gdy padnie API.
 
 from __future__ import annotations
 
+from itertools import count
+
 from .metrics import alerty, porownaj
 from .models import (
     Activity,
@@ -43,6 +45,17 @@ def _strzalka(zmiana: float) -> str:
     if zmiana < 0:
         return f"▼ {zmiana}"
     return "= 0"
+
+
+def _pasek(proc: float | None, dlugosc: int = 12) -> str:
+    """Pasek z bloków — w czystym Markdownie to jedyny sposób na wykres.
+
+    Wygląda tak samo w każdym podglądzie Markdowna, bo to zwykłe znaki.
+    """
+    if proc is None:
+        return "—"
+    pelne = round(dlugosc * min(max(proc, 0), 100) / 100)
+    return "█" * pelne + "░" * (dlugosc - pelne) + f" {proc}%"
 
 
 def _tabela(naglowki: list[str], wiersze: list[list]) -> str:
@@ -94,6 +107,20 @@ def heurystyczna_ocena(m: dict) -> tuple[list[str], list[str], list[str]]:
     return mocne, slabe, plan[:3]
 
 
+def _skrot(m: dict) -> str:
+    """Cztery liczby na samej górze — żeby nie trzeba było czytać całości."""
+    realizacja = m.get("realizacja_normy_proc")
+    punkty = m.get("punkty_razem")
+    return "> **W skrócie** · " + " · ".join(filter(None, [
+        f"{m['liczba_aktywnosci']} aktywności ({m['srednio_dziennie']}/dzień)",
+        f"realizacja normy {realizacja}%" if realizacja is not None else None,
+        f"{m['leady']} leadów i {m['sygnaly']} sygnałów "
+        f"(konwersja {m['konwersja_na_lead_proc']}%)",
+        f"{punkty:,.0f} pkt".replace(",", " ") if punkty is not None else None,
+        f"indeks jakości {m['indeks_jakosci']}/100",
+    ]))
+
+
 def zbuduj_raport(
     profil: Pracownik,
     typ_okresu: str,
@@ -117,104 +144,120 @@ def zbuduj_raport(
     if m.get("pusty"):
         return naglowek + "\n> Brak aktywności w tym okresie.\n"
 
-    czesci = [naglowek]
+    czesci = [naglowek, _skrot(m)]
 
-    # --- 1. Liczby ---
+    # Numer sekcji nadajemy w locie. Wcześniej były wpisane na sztywno i po
+    # dołożeniu punktacji raport szedł 5, 6, 5b, 6b, 7 — czyli nijak.
+    numer = count(1)
+
+    def sekcja(tytul: str, tresc: str) -> str:
+        return f"## {next(numer)}. {tytul}\n\n{tresc}"
+
+    # --- ilość ---
     norma = m.get("norma", {})
-    czesci.append("## 1. Ilość\n\n" + _tabela(
+    norma_teraz = m.get("norma_proporcjonalna", norma.get("aktywnosci"))
+    czesci.append(sekcja("Ilość pracy", _tabela(
         ["Wskaźnik", "Wartość", "Norma", "Realizacja"],
         [
-            ["Aktywności", m["liczba_aktywnosci"], norma.get("aktywnosci"),
-             f"{m['realizacja_normy_proc']}%" if m.get("realizacja_normy_proc") is not None else None],
+            ["Aktywności", m["liczba_aktywnosci"], norma_teraz,
+             _pasek(m.get("realizacja_normy_proc"))],
             ["Średnio dziennie", m["srednio_dziennie"], None, None],
-            ["Unikalne budynki", m["unikalne_budynki"], None, None],
-            ["Unikalne lokale", m["unikalne_lokale"], None, None],
+            ["Dni z aktywnością", m["dni_z_aktywnoscia"],
+             m.get("dni_robocze_uplynelo"),
+             f"{m.get('dni_bez_aktywnosci', 0)} dni pustych"],
             ["Kontakt bezpośredni", m["kanaly"].get("bezposredni", 0), None,
-             f"{m['udzial_bezposrednich_proc']}%"],
+             f"{m['udzial_bezposrednich_proc']}% wszystkich"],
             ["Telefon", m["kanaly"].get("telefon", 0), None, None],
+            ["Budynki / lokale", f"{m['unikalne_budynki']} / {m['unikalne_lokale']}",
+             None, None],
         ],
-    ))
+    ) + (f"\n\nNorma proporcjonalna do dni, które już minęły "
+         f"({norma.get('aktywnosci')} za cały okres)."
+         if norma_teraz != norma.get("aktywnosci") else "")))
 
-    # --- 2. Jakość ---
-    czesci.append("## 2. Jakość\n\n" + _tabela(
+    # --- jakość ---
+    czesci.append(sekcja("Jakość pracy", _tabela(
         ["Wskaźnik", "Wartość", "Komentarz"],
         [
-            ["Konwersja na lead/sygnał", f"{m['konwersja_na_lead_proc']}%", "ze wszystkich kontaktów"],
+            ["Konwersja na lead/sygnał", _pasek(m["konwersja_na_lead_proc"]),
+             "ze wszystkich kontaktów"],
             ["Leady", m["leady"], "deklaracja chęci sprzedaży/najmu"],
-            ["Sygnały", m["sygnaly"], "„przemyśli”, „pod 1 chyba chciała”"],
+            ["Sygnały", m["sygnaly"], "„przemyśli”, „może za rok”"],
             ["Informacje rynkowe", m["info_rynkowe"], "wiedza o terenie"],
             ["Odmowy twarde", m["odmowy_twarde"],
              f"{m['wskaznik_odmow_twardych_proc']}% kontaktów"],
-            ["Kontaktów na 1 lead", m["kontaktow_na_lead"], "koszt pozyskania w aktywnościach"],
-            ["Notatki z treścią", f"{m['notatki_merytoryczne_proc']}%",
+            ["Kontaktów na 1 lead", m["kontaktow_na_lead"],
+             "koszt pozyskania w aktywnościach"],
+            ["Notatki z treścią", _pasek(m["notatki_merytoryczne_proc"]),
              f"średnio {m['srednia_dlugosc_notatki']} znaków"],
-            ["Follow-up", f"{m['follow_up_proc']}%",
-             f"materiał: {m['material_zostawiony']}, kolejny krok: {m['kolejny_krok_zaplanowany']}"],
-            ["**Indeks jakości pracy**", f"**{m['indeks_jakosci']}/100**", "ilość + jakość razem"],
+            ["Follow-up", _pasek(m["follow_up_proc"]),
+             f"materiał: {m['material_zostawiony']}, "
+             f"kolejny krok: {m['kolejny_krok_zaplanowany']}"],
+            ["**Indeks jakości pracy**", f"**{m['indeks_jakosci']}/100**",
+             "ilość + jakość razem"],
         ],
-    ))
+    )))
 
-    # --- 3. Organizacja czasu ---
-    rozklad = " ".join(f"{g}:00→{n}" for g, n in m["rozklad_godzinowy"].items())
-    czesci.append(
-        "## 3. Organizacja czasu\n\n"
-        f"- Pierwsza aktywność: **{m['pierwsza_aktywnosc']}**, ostatnia: **{m['ostatnia_aktywnosc']}**\n"
-        f"- Średnia rozpiętość dnia: **{m['rozpietosc_dnia_h']} h**, tempo: **{m['aktywnosci_na_godzine']} akt./h**\n"
-        f"- Praca w „złotych godzinach” (16–20): **{m['praca_w_zlotych_godzinach_proc']}%**\n"
-        f"- Rozkład: {rozklad}\n"
-    )
-
-    # --- 4. Struktura wyników ---
+    # --- struktura wyników ---
     wiersze = [
-        [ETYKIETY_WYNIKOW.get(w, w), n, f"{round(100 * n / m['liczba_aktywnosci'], 1)}%"]
+        [ETYKIETY_WYNIKOW.get(w, w), n,
+         _pasek(round(100 * n / m["liczba_aktywnosci"], 1))]
         for w, n in m["wyniki"].items()
     ]
-    czesci.append("## 4. Co wyszło z kontaktów\n\n" + _tabela(["Wynik", "Liczba", "Udział"], wiersze))
-
+    blok = _tabela(["Wynik", "Liczba", "Udział"], wiersze)
     if m["tagi"]:
         tagi = ", ".join(f"`{t}` × {n}" for t, n in m["tagi"].items())
-        czesci.append(f"**Tagi z notatek:** {tagi}\n")
+        blok += f"\n\n**Tagi z notatek:** {tagi}"
+    czesci.append(sekcja("Co wyszło z kontaktów", blok))
 
-    # --- 5. Teren ---
+    # --- organizacja czasu ---
+    rozklad = " ".join(f"{g}:00→{n}" for g, n in m["rozklad_godzinowy"].items())
+    czesci.append(sekcja("Organizacja czasu",
+        f"- Dzień od **{m['pierwsza_aktywnosc']}** do **{m['ostatnia_aktywnosc']}**, "
+        f"średnio **{m['rozpietosc_dnia_h']} h** "
+        f"(tempo {m['aktywnosci_na_godzine']} akt./h)\n"
+        f"- Praca w „złotych godzinach” 16–20: {_pasek(m['praca_w_zlotych_godzinach_proc'])}\n"
+        f"- Rozkład godzinowy: {rozklad}"))
+
+    # --- teren ---
     if m["top_budynki"]:
         wiersze = [[b, n] for b, n in m["top_budynki"].items()]
-        czesci.append("## 5. Teren\n\n" + _tabela(["Budynek", "Kontakty"], wiersze))
+        czesci.append(sekcja("Teren", _tabela(["Budynek", "Kontakty"], wiersze)))
 
-    # --- 6. Trend ---
-    if m_poprzedni and not m_poprzedni.get("pusty"):
-        delty = porownaj(m, m_poprzedni)
-        wiersze = [[p, d["teraz"], d["poprzednio"], _strzalka(d["zmiana"])]
-                   for p, d in delty.items()]
-        czesci.append("## 6. Trend względem poprzedniego okresu\n\n"
-                      + _tabela(["Wskaźnik", "Teraz", "Poprzednio", "Zmiana"], wiersze))
-
-    # --- 5b. Klasyfikacja punktowa ---
+    # --- punktacja ---
     if m.get("punkty"):
-        czesci.append(_sekcja_punktow(m["punkty"]))
+        czesci.append(sekcja("Klasyfikacja punktowa", _sekcja_punktow(m["punkty"])))
 
-    # --- 6b. Na tle innych ---
+    # --- na tle grupy ---
     if grupy:
-        czesci.append(_sekcja_porownania(grupy))
+        czesci.append(sekcja("Na tle innych na tym samym stanowisku",
+                             _sekcja_porownania(grupy)))
 
-    # --- 7. Alerty ---
-    ostrzezenia = alerty(m, m_poprzedni)
-    if ostrzezenia:
-        czesci.append("## 7. Alerty\n\n"
-                      + "\n".join(f"- ⚠️ {o['tresc']}" for o in ostrzezenia))
+    # --- trend ---
+    if m_poprzedni and not m_poprzedni.get("pusty"):
+        wiersze = [[p, d["teraz"], d["poprzednio"], _strzalka(d["zmiana"])]
+                   for p, d in porownaj(m, m_poprzedni).items()]
+        czesci.append(sekcja("Trend względem poprzedniego okresu",
+            _tabela(["Wskaźnik", "Teraz", "Poprzednio", "Zmiana"], wiersze)))
 
-    # --- 8. Ocena ---
+    # --- ocena ---
     if ocena_llm:
-        czesci.append(_sekcja_oceny_llm(ocena_llm))
+        czesci.append(sekcja("Ocena AI", _sekcja_oceny_llm(ocena_llm)))
     else:
         mocne, slabe, plan = heurystyczna_ocena(m)
-        czesci.append(
-            "## 8. Ocena (heurystyka — bez LLM)\n\n"
-            "**Mocne strony**\n" + "\n".join(f"- {x}" for x in mocne) +
-            "\n\n**Do poprawy**\n" + "\n".join(f"- {x}" for x in slabe) +
-            "\n\n**Plan na następny okres**\n" + "\n".join(f"{i}. {x}" for i, x in enumerate(plan, 1))
-        )
+        czesci.append(sekcja("Ocena (z reguł — bez AI)",
+            "**Mocne strony**\n" + ("\n".join(f"- {x}" for x in mocne) or "- (brak)") +
+            "\n\n**Do poprawy**\n" + ("\n".join(f"- {x}" for x in slabe) or "- (brak)") +
+            "\n\n**Plan na następny okres**\n"
+            + ("\n".join(f"{i}. {x}" for i, x in enumerate(plan, 1)) or "1. (brak)")))
 
-    # --- 9. Do dopilnowania ---
+    # --- alerty ---
+    ostrzezenia = alerty(m, m_poprzedni)
+    if ostrzezenia:
+        czesci.append(sekcja("Alerty",
+                             "\n".join(f"- ⚠️ {o['tresc']}" for o in ostrzezenia)))
+
+    # --- do dopilnowania ---
     do_dopilnowania = [a for a in aktywnosci if a.wynik in (WYNIK_LEAD, WYNIK_SYGNAL)]
     if do_dopilnowania:
         wiersze = [
@@ -222,23 +265,21 @@ def zbuduj_raport(
              ETYKIETY_WYNIKOW.get(a.wynik, a.wynik), a.notatka[:120]]
             for a in do_dopilnowania
         ]
-        czesci.append("## 9. Do dopilnowania (leady i sygnały)\n\n"
-                      + _tabela(["Kiedy", "Adres", "Typ", "Notatka"], wiersze))
+        czesci.append(sekcja("Do dopilnowania — leady i sygnały",
+                             _tabela(["Kiedy", "Adres", "Typ", "Notatka"], wiersze)))
 
-    # --- 10. Wiedza rynkowa ---
+    # --- wiedza rynkowa ---
     rynek = [a for a in aktywnosci if a.wynik == WYNIK_INFO_RYNKOWE]
     if rynek:
-        czesci.append(
-            "## 10. Wiedza rynkowa zebrana w okresie\n\n"
-            + "\n".join(f"- **{a.budynek} {a.lokal}** — {a.notatka[:140]}" for a in rynek[:15])
-        )
+        czesci.append(sekcja("Wiedza rynkowa zebrana w okresie",
+            "\n".join(f"- **{(a.budynek + ' ' + a.lokal).strip()}** — {a.notatka[:140]}"
+                      for a in rynek[:15])))
 
-    # --- 11. Pamięć agenta ---
+    # --- pamięć agenta ---
     if pamiec:
-        czesci.append(
-            "## 11. Z poprzednich okresów\n\n"
-            + "\n".join(f"- [{w['data'][:10]}] *{w['typ']}*: {w['tresc']}" for w in pamiec[:8])
-        )
+        czesci.append(sekcja("Ustalenia z poprzednich okresów",
+            "\n".join(f"- [{w['data'][:10]}] *{w['typ']}*: {w['tresc']}"
+                      for w in pamiec[:8])))
 
     return "\n\n".join(czesci) + "\n"
 
@@ -251,10 +292,9 @@ def _sekcja_punktow(punkty: dict) -> str:
         for p in punkty["pozycje"]
     ]
     bloki = [
-        "## 5b. Klasyfikacja punktowa\n\n"
-        f"**Razem: {punkty['punkty_razem']:,.0f} pkt** "
-        f"(aktywność {punkty['punkty_za_aktywnosc']:,.0f} + bonusy {punkty['punkty_bonusowe']:,.0f})"
-        .replace(",", " "),
+        (f"**Razem: {punkty['punkty_razem']:,.0f} pkt** "
+         f"(aktywność {punkty['punkty_za_aktywnosc']:,.0f} "
+         f"+ bonusy {punkty['punkty_bonusowe']:,.0f})").replace(",", " "),
         _tabela(["Kod", "Wskaźnik", "Ile", "Stawka", "Punkty"], wiersze),
     ]
     if punkty["kompletnosc_proc"] < 100:
@@ -276,7 +316,7 @@ def _sekcja_punktow(punkty: dict) -> str:
 
 
 def _sekcja_porownania(grupy: list[dict]) -> str:
-    bloki = ["## 6b. Na tle innych osób na tym samym stanowisku"]
+    bloki = []
     for g in grupy:
         tytul = f"**{g['nazwa']}** — osób w grupie: {g['liczebnosc']}"
         if not g["wiarygodne"]:
@@ -305,7 +345,6 @@ def _sekcja_oceny_llm(ocena: dict) -> str:
     ) or "1. (brak)"
 
     return (
-        "## 8. Ocena AI\n\n"
         f"**Podsumowanie:** {ocena.get('podsumowanie', '')}\n\n"
         + (f"**Na tle grupy:** {ocena['na_tle_grupy']}\n\n"
            if ocena.get("na_tle_grupy") else "")

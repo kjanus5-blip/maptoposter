@@ -273,7 +273,9 @@
     <input type="hidden" name="okres" value="{{ okres.typ }}">
     <input type="hidden" name="klucz" value="{{ okres.klucz }}">
     <button type="submit">{{ 'Wygeneruj ponownie' if ocena else 'Wygeneruj ocenę AI' }}</button>
-    <a class="przycisk wtorny" href="{{ url_for('raport_md', klucz=p.klucz) }}{{ mk.q(okres) }}">Pobierz raport (.md)</a>
+    <a class="przycisk" href="{{ url_for('raport_html', klucz=p.klucz) }}{{ mk.q(okres) }}"
+       target="_blank" rel="noopener">Raport do druku / PDF</a>
+    <a class="przycisk wtorny" href="{{ url_for('raport_md', klucz=p.klucz) }}{{ mk.q(okres) }}">Pobierz .md</a>
   </form>
 </div>
 

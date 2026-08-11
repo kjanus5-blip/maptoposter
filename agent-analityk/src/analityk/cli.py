@@ -21,6 +21,7 @@ from .ingest import wczytaj_plik
 from .metrics import (
     TYPY_OKRESOW,
     alerty,
+    etykieta_okresu,
     klucz_okresu,
     podsumowanie,
     poprzedni_okres,
@@ -30,6 +31,7 @@ from .metrics import (
 )
 from .org import NAZWY_ROL, ROLE, Biuro
 from .punktacja import dopisz_punkty
+from .raport_html import zbuduj_raport_html
 from .report import zbuduj_raport
 from .zadania import (
     NAZWY_ZADAN,
@@ -132,10 +134,18 @@ def cmd_raport(args) -> int:
         for zal in ocena.get("plan_na_nastepny_okres", []):
             baza.dopisz_pamiec(args.pracownik, "zalecenie", zal, f"{args.okres}:{klucz}")
 
+    if args.html:
+        # HTML powstaje z tych samych metryk — Markdown zapisujemy do bazy
+        # niezależnie, żeby historia raportów była zawsze w jednym formacie.
+        tresc = zbuduj_raport_html(
+            p, args.okres, klucz, m, akt, m_poprz, ocena, pamiec, grupy,
+            etykieta_okresu_=etykieta_okresu(klucz, args.okres),
+        )
+
     if args.zapisz:
         katalog = Path(args.katalog_raportow) / args.pracownik
         katalog.mkdir(parents=True, exist_ok=True)
-        plik = katalog / f"{args.okres}_{klucz}.md"
+        plik = katalog / f"{args.okres}_{klucz}.{'html' if args.html else 'md'}"
         plik.write_text(tresc, encoding="utf-8")
         print(f"Zapisano: {plik}")
     else:
@@ -357,6 +367,8 @@ def zbuduj_parser() -> argparse.ArgumentParser:
     r.add_argument("--model", default="claude-opus-5")
     r.add_argument("--pokaz-prompt", dest="pokaz_prompt", action="store_true",
                    help="wypisz prompt zamiast wołać API (podgląd, koszt 0)")
+    r.add_argument("--html", action="store_true",
+                   help="raport jako strona HTML do wydruku/PDF zamiast Markdowna")
     r.add_argument("--zapisz", action="store_true")
     r.add_argument("--katalog-raportow", dest="katalog_raportow", default="raporty")
     r.set_defaults(func=cmd_raport)

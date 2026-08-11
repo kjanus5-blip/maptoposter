@@ -100,14 +100,17 @@ class TestAdresy(unittest.TestCase):
         self.assertEqual(klucz_pracownika("Łukasz Żółć"), "lukasz_zolc")
 
 
+def akt(wynik: str, godzina: int = 12, notatka: str = "x" * 40) -> Activity:
+    d = datetime(2026, 8, 10, godzina, 0)
+    return Activity(
+        id=zbuduj_id("t", d, wynik, notatka + str(godzina)),
+        pracownik="t", pracownik_nazwa="T", data=d, kanal="bezposredni",
+        notatka=notatka, wynik=wynik, budynek="Dworcowa 7", lokal=str(godzina),
+    )
+
+
 class TestMetryki(unittest.TestCase):
-    def _akt(self, wynik: str, godzina: int = 12, notatka: str = "x" * 40) -> Activity:
-        d = datetime(2026, 8, 10, godzina, 0)
-        return Activity(
-            id=zbuduj_id("t", d, wynik, notatka + str(godzina)),
-            pracownik="t", pracownik_nazwa="T", data=d, kanal="bezposredni",
-            notatka=notatka, wynik=wynik, budynek="Dworcowa 7", lokal=str(godzina),
-        )
+    _akt = staticmethod(akt)
 
     def test_pusty_okres(self):
         m = podsumowanie([], "dzien")
@@ -176,6 +179,65 @@ class TestParserCSV(unittest.TestCase):
         self.assertGreater(len(akt), 20)
         self.assertTrue(all(a.pracownik == "marek_nowak" for a in akt))
         self.assertTrue(all(a.data.year == 2026 for a in akt))
+
+
+class TestRaporty(unittest.TestCase):
+    """Raport ma być kompletny i bezpieczny — w obu formatach."""
+
+    def _dane(self, wyniki=("lead", "odmowa", "info_rynkowe", "sygnal")):
+        from analityk.metrics import podsumowanie
+        from analityk.org import Pracownik
+        lista = [akt(w, 9 + i) for i, w in enumerate(wyniki)]
+        m = podsumowanie(lista, "dzien", zakres=("2026-08-10", "2026-08-10"))
+        return Pracownik(klucz="t", imie_nazwisko="Test Testowy"), m, lista
+
+    def test_numeracja_sekcji_jest_ciagla(self):
+        """Sekcje szły kiedyś 5, 6, 5b, 6b, 7 — po dołożeniu punktacji."""
+        import re
+        from analityk.report import zbuduj_raport
+        p, m, akt = self._dane()
+        numery = [int(x) for x in re.findall(r"^## (\d+)\.", zbuduj_raport(
+            p, "dzien", "2026-08-10", m, akt), re.M)]
+        self.assertEqual(numery, list(range(1, len(numery) + 1)))
+
+    def test_markdown_ma_skrot_na_gorze(self):
+        from analityk.report import zbuduj_raport
+        p, m, akt = self._dane()
+        tresc = zbuduj_raport(p, "dzien", "2026-08-10", m, akt)
+        self.assertIn("**W skrócie**", tresc)
+        self.assertIn("█", tresc)                      # paski postępu
+
+    def test_html_jest_samodzielny(self):
+        """Raport ma działać po wysłaniu mailem — bez internetu i bez CDN."""
+        from analityk.raport_html import zbuduj_raport_html
+        p, m, akt = self._dane()
+        html = zbuduj_raport_html(p, "dzien", "2026-08-10", m, akt)
+        self.assertTrue(html.startswith("<!doctype html>"))
+        self.assertIn("<style>", html)
+        self.assertNotIn("<script", html)
+        self.assertNotIn("http://", html)
+        self.assertNotIn("https://", html)
+
+    def test_html_escapuje_notatki(self):
+        """Notatka z CRM to tekst od użytkownika — nie może wstrzyknąć HTML-a."""
+        from analityk.metrics import podsumowanie
+        from analityk.org import Pracownik
+        from analityk.raport_html import zbuduj_raport_html
+        a = akt("lead", notatka="<script>alert(1)</script> " + "x" * 30)
+        m = podsumowanie([a], "dzien", zakres=("2026-08-10", "2026-08-10"))
+        html = zbuduj_raport_html(Pracownik(klucz="t", imie_nazwisko="T"),
+                                  "dzien", "2026-08-10", m, [a])
+        self.assertNotIn("<script>alert", html)
+        self.assertIn("&lt;script&gt;", html)
+
+    def test_html_znosi_pusty_okres(self):
+        from analityk.metrics import podsumowanie
+        from analityk.org import Pracownik
+        from analityk.raport_html import zbuduj_raport_html
+        html = zbuduj_raport_html(Pracownik(klucz="t", imie_nazwisko="T"),
+                                  "dzien", "2026-08-10", podsumowanie([], "dzien"), [])
+        self.assertIn("Brak jakiejkolwiek aktywności", html)
+        self.assertTrue(html.rstrip().endswith("</html>"))
 
 
 if __name__ == "__main__":
