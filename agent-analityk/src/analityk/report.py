@@ -67,12 +67,6 @@ def heurystyczna_ocena(m: dict) -> tuple[list[str], list[str], list[str]]:
         slabe.append(f"Aktywność poniżej normy ({m.get('realizacja_normy_proc')}%).")
         plan.append("Dobić do normy kontaktów — zaplanuj bloki pukania z góry, nie „ile wyjdzie”.")
 
-    if m["wskaznik_dotarcia_proc"] >= 70:
-        mocne.append(f"Wysoka skuteczność dotarcia: {m['wskaznik_dotarcia_proc']}% kontaktów "
-                     "kończy się realną rozmową.")
-    else:
-        slabe.append(f"Niska skuteczność dotarcia ({m['wskaznik_dotarcia_proc']}%).")
-
     if m["notatki_merytoryczne_proc"] >= 80:
         mocne.append(f"Notatki prowadzone rzetelnie ({m['notatki_merytoryczne_proc']}% z treścią).")
     else:
@@ -86,7 +80,7 @@ def heurystyczna_ocena(m: dict) -> tuple[list[str], list[str], list[str]]:
         plan.append("Po usłyszeniu „nie” zadaj jedno pytanie o sąsiadów i o plany na 12 miesięcy.")
 
     if m["follow_up_proc"] < 15:
-        slabe.append(f"Follow-up tylko w {m['follow_up_proc']}% kontaktów — rozmowy nie mają ciągu dalszego.")
+        slabe.append(f"Follow-up tylko w {m['follow_up_proc']}% kontaktów — nie mają ciągu dalszego.")
         plan.append("Zostawiaj wizytówkę/ulotkę zawsze, gdy ktoś otworzy drzwi, i notuj to w CRM.")
     else:
         mocne.append(f"Follow-up zaplanowany w {m['follow_up_proc']}% kontaktów.")
@@ -132,7 +126,6 @@ def zbuduj_raport(
         [
             ["Aktywności", m["liczba_aktywnosci"], norma.get("aktywnosci"),
              f"{m['realizacja_normy_proc']}%" if m.get("realizacja_normy_proc") is not None else None],
-            ["Rozmowy odbyte", m["rozmowy_odbyte"], norma.get("rozmowy"), None],
             ["Średnio dziennie", m["srednio_dziennie"], None, None],
             ["Unikalne budynki", m["unikalne_budynki"], None, None],
             ["Unikalne lokale", m["unikalne_lokale"], None, None],
@@ -146,13 +139,12 @@ def zbuduj_raport(
     czesci.append("## 2. Jakość\n\n" + _tabela(
         ["Wskaźnik", "Wartość", "Komentarz"],
         [
-            ["Wskaźnik dotarcia", f"{m['wskaznik_dotarcia_proc']}%", "rozmowy / wszystkie próby"],
-            ["Konwersja na lead/sygnał", f"{m['konwersja_na_lead_proc']}%", "z odbytych rozmów"],
+            ["Konwersja na lead/sygnał", f"{m['konwersja_na_lead_proc']}%", "ze wszystkich kontaktów"],
             ["Leady", m["leady"], "deklaracja chęci sprzedaży/najmu"],
             ["Sygnały", m["sygnaly"], "„przemyśli”, „pod 1 chyba chciała”"],
             ["Informacje rynkowe", m["info_rynkowe"], "wiedza o terenie"],
             ["Odmowy twarde", m["odmowy_twarde"],
-             f"{m['wskaznik_odmow_twardych_proc']}% rozmów"],
+             f"{m['wskaznik_odmow_twardych_proc']}% kontaktów"],
             ["Kontaktów na 1 lead", m["kontaktow_na_lead"], "koszt pozyskania w aktywnościach"],
             ["Notatki z treścią", f"{m['notatki_merytoryczne_proc']}%",
              f"średnio {m['srednia_dlugosc_notatki']} znaków"],

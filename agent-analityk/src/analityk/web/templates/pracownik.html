@@ -26,7 +26,6 @@
       {{ mk.kafel('Aktywności', m.liczba_aktywnosci,
                  'norma ' ~ (m.norma_proporcjonalna if m.norma_proporcjonalna is defined
                              else m.norma.aktywnosci)) }}
-      {{ mk.kafel('Rozmowy', m.rozmowy_odbyte, 'dotarcie ' ~ m.wskaznik_dotarcia_proc ~ '%') }}
       {{ mk.kafel('Leady / sygnały', m.leady ~ ' / ' ~ m.sygnaly,
                  'konwersja ' ~ m.konwersja_na_lead_proc ~ '%') }}
       {{ mk.kafel('Follow-up', m.follow_up_proc ~ '%',

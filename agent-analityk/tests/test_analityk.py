@@ -119,9 +119,10 @@ class TestMetryki(unittest.TestCase):
                self._akt("brak_kontaktu", 11), self._akt("info_rynkowe", 17)]
         m = podsumowanie(akt, "dzien")
         self.assertEqual(m["liczba_aktywnosci"], 4)
-        self.assertEqual(m["rozmowy_odbyte"], 3)           # bez brak_kontaktu
-        self.assertEqual(m["wskaznik_dotarcia_proc"], 75.0)
         self.assertEqual(m["leady"], 1)
+        # konwersja liczona ze wszystkich kontaktów: lead + info_rynkowe nie
+        # jest sygnałem, więc do licznika wchodzi tylko lead
+        self.assertEqual(m["konwersja_na_lead_proc"], 25.0)
         self.assertEqual(m["praca_w_zlotych_godzinach_proc"], 25.0)
         self.assertEqual(m["notatki_merytoryczne_proc"], 100.0)
         self.assertTrue(0 <= m["indeks_jakosci"] <= 100)

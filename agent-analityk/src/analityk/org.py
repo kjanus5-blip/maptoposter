@@ -49,9 +49,9 @@ OPIS_ROL = {
 
 #: Dzienna norma bazowa dla każdej roli. Pozostałe okresy skalują się z niej.
 NORMY_DZIENNE_ROL = {
-    ROLA_AGENT: {"aktywnosci": 40, "rozmowy": 25, "leady": 1},
-    ROLA_KOORDYNATOR: {"aktywnosci": 25, "rozmowy": 18, "leady": 1},
-    ROLA_KIEROWNIK: {"aktywnosci": 12, "rozmowy": 8, "leady": 0},
+    ROLA_AGENT: {"aktywnosci": 40, "leady": 1},
+    ROLA_KOORDYNATOR: {"aktywnosci": 25, "leady": 1},
+    ROLA_KIEROWNIK: {"aktywnosci": 12, "leady": 0},
 }
 
 #: Mnożniki okresów — dni robocze z sobotami (5,5 dnia/tydzień w praktyce).

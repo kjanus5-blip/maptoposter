@@ -28,7 +28,6 @@
                   'średnia w biurze') }}
       {{ mk.kafel('Leady / sygnały', m.leady ~ ' / ' ~ m.sygnaly,
                   'konwersja ' ~ m.konwersja_na_lead_proc ~ '%') }}
-      {{ mk.kafel('Dotarcie', m.wskaznik_dotarcia_proc ~ '%', 'rozmowy / próby') }}
       {{ mk.kafel('Follow-up', m.follow_up_proc ~ '%', 'co zostaje po „nie”') }}
       {{ mk.kafel('Jakość notatek', m.notatki_merytoryczne_proc ~ '%',
                   'higiena danych w CRM') }}
@@ -109,7 +108,7 @@
           <tr>
             <th>Pracownik</th><th class="liczba">Aktywności</th>
             <th class="liczba">Norma</th><th class="liczba">Leady</th>
-            <th class="liczba">Dotarcie</th><th class="liczba">Notatki</th>
+            <th class="liczba">Notatki</th>
             <th class="liczba">Follow-up</th><th class="liczba">Indeks</th>
             <th class="liczba">Punkty</th>
           </tr>
@@ -131,7 +130,6 @@
                 {% else %}—{% endif %}
               </td>
               <td class="liczba">{{ met.leady }}</td>
-              <td class="liczba">{{ met.wskaznik_dotarcia_proc }}%</td>
               <td class="liczba">{{ met.notatki_merytoryczne_proc }}%</td>
               <td class="liczba">{{ met.follow_up_proc }}%</td>
               <td class="liczba">{{ mk.odznaka(met.indeks_jakosci) }}</td>
@@ -194,7 +192,7 @@
         <tr>
           <th class="miejsce">#</th><th>Biuro</th><th class="liczba">Osób</th>
           <th class="liczba">Aktywności</th><th class="liczba">Na osobę</th>
-          <th class="liczba">Leady</th><th class="liczba">Dotarcie</th>
+          <th class="liczba">Leady</th>
           <th class="liczba">Follow-up</th><th class="liczba">Punkty</th>
         </tr>
       </thead>
@@ -212,7 +210,6 @@
             <td class="liczba">{{ b.liczba_aktywnosci }}</td>
             <td class="liczba">{{ (b.liczba_aktywnosci / b.liczba_pracujacych)|round(1) }}</td>
             <td class="liczba">{{ b.leady }}</td>
-            <td class="liczba">{{ b.wskaznik_dotarcia_proc }}%</td>
             <td class="liczba">{{ b.follow_up_proc }}%</td>
             <td class="liczba"><strong>{{ '{:,.0f}'.format(b.punkty_razem or 0)|replace(',', ' ') }}</strong></td>
           {% endif %}

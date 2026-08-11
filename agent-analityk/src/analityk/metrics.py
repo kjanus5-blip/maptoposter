@@ -24,20 +24,19 @@ TYPY_OKRESOW = ("dzien", "tydzien", "miesiac", "kwartal", "rok")
 
 #: Domyślne normy aktywności (do nadpisania w config.yaml / profilu pracownika).
 NORMY_DOMYSLNE = {
-    "dzien": {"aktywnosci": 40, "rozmowy": 25, "leady": 1},
-    "tydzien": {"aktywnosci": 200, "rozmowy": 120, "leady": 5},
-    "miesiac": {"aktywnosci": 800, "rozmowy": 480, "leady": 20},
-    "kwartal": {"aktywnosci": 2400, "rozmowy": 1440, "leady": 60},
-    "rok": {"aktywnosci": 9600, "rozmowy": 5760, "leady": 240},
+    "dzien": {"aktywnosci": 40, "leady": 1},
+    "tydzien": {"aktywnosci": 200, "leady": 5},
+    "miesiac": {"aktywnosci": 800, "leady": 20},
+    "kwartal": {"aktywnosci": 2400, "leady": 60},
+    "rok": {"aktywnosci": 9600, "leady": 240},
 }
 
 #: Waga składników indeksu jakości pracy (suma = 1.0).
 WAGI_INDEKSU = {
-    "realizacja_normy": 0.30,
-    "dotarcie": 0.20,
-    "konwersja": 0.20,
-    "jakosc_notatek": 0.15,
-    "follow_up": 0.15,
+    "realizacja_normy": 0.35,
+    "konwersja": 0.25,
+    "jakosc_notatek": 0.20,
+    "follow_up": 0.20,
 }
 
 MIN_DLUGOSC_NOTATKI = 20  # znaków — poniżej notatka niczego nie wnosi
@@ -164,7 +163,6 @@ def podsumowanie(aktywnosci: list[Activity], typ_okresu: str = "dzien",
     godziny = Counter(a.godzina for a in aktywnosci)
     dni = sorted({a.dzien for a in aktywnosci})
 
-    rozmowy = sum(1 for a in aktywnosci if a.byla_rozmowa)
     wartosciowe = sum(1 for a in aktywnosci if a.wartosciowa)
     leady = wyniki[WYNIK_LEAD]
     sygnaly = wyniki[WYNIK_SYGNAL]
@@ -199,18 +197,16 @@ def podsumowanie(aktywnosci: list[Activity], typ_okresu: str = "dzien",
         "udzial_bezposrednich_proc": _procent(kanaly.get("bezposredni", 0), n),
 
         # --- SKUTECZNOŚĆ ---
-        "rozmowy_odbyte": rozmowy,
-        "wskaznik_dotarcia_proc": _procent(rozmowy, n),
         "brak_kontaktu": wyniki[WYNIK_BRAK_KONTAKTU],
         "odmowy_twarde": wyniki[WYNIK_ODMOWA_TWARDA],
-        "wskaznik_odmow_twardych_proc": _procent(wyniki[WYNIK_ODMOWA_TWARDA], max(rozmowy, 1)),
+        "wskaznik_odmow_twardych_proc": _procent(wyniki[WYNIK_ODMOWA_TWARDA], n),
 
         # --- WARTOŚĆ ---
         "leady": leady,
         "sygnaly": sygnaly,
         "info_rynkowe": wyniki[WYNIK_INFO_RYNKOWE],
         "wynikow_wartosciowych": wartosciowe,
-        "konwersja_na_lead_proc": _procent(leady + sygnaly, max(rozmowy, 1)),
+        "konwersja_na_lead_proc": _procent(leady + sygnaly, n),
         "kontaktow_na_lead": round(n / leady, 1) if leady else None,
 
         # --- JAKOŚĆ PRACY W CRM ---
@@ -272,8 +268,7 @@ def indeks_jakosci(m: dict, wagi: dict | None = None) -> int:
     w = wagi or WAGI_INDEKSU
     skladniki = {
         "realizacja_normy": min(m.get("realizacja_normy_proc") or 0, 120) / 1.2,
-        "dotarcie": m["wskaznik_dotarcia_proc"],
-        # 8% konwersji rozmowa -> lead/sygnał traktujemy jako wynik wzorcowy
+        # 8% kontaktów kończących się leadem/sygnałem to wynik wzorcowy
         "konwersja": min(m["konwersja_na_lead_proc"] / 8 * 100, 100),
         "jakosc_notatek": m["notatki_merytoryczne_proc"],
         "follow_up": min(m["follow_up_proc"] / 20 * 100, 100),
@@ -284,8 +279,7 @@ def indeks_jakosci(m: dict, wagi: dict | None = None) -> int:
 def porownaj(biezacy: dict, poprzedni: dict, pola: list[str] | None = None) -> dict:
     """Delty względem poprzedniego okresu (wartość, zmiana, zmiana %)."""
     pola = pola or [
-        "liczba_aktywnosci", "rozmowy_odbyte", "leady", "sygnaly",
-        "wskaznik_dotarcia_proc", "konwersja_na_lead_proc",
+        "liczba_aktywnosci", "leady", "sygnaly", "konwersja_na_lead_proc",
         "notatki_merytoryczne_proc", "follow_up_proc", "indeks_jakosci",
     ]
     out = {}

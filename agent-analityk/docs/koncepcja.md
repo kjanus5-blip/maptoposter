@@ -100,7 +100,7 @@ pukania kosztuje jedna transakcja. Wymaga drugiego eksportu z CRM. Szczegóły:
 - baza obiekcji budowana automatycznie z notatek + skrypty odpowiedzi,
 - mapa ciepła terenu: które budynki dają leady, a gdzie nie wracać przez pół roku,
 - agenda na 1:1 generowana z raportu tygodniowego,
-- alert wypalenia: spadek długości notatek + skrócenie dnia + spadek dotarcia.
+- alert wypalenia: spadek długości notatek + skrócenie dnia + spadek konwersji.
 
 **Etap 4 — interfejs.** Dopóki jesteś jedynym odbiorcą, CLI wystarcza. Gdy
 raporty mają czytać sami agenci, potrzebny jest panel WWW albo wysyłka na

@@ -176,8 +176,7 @@ wprost: `--okres-klucz 2026-W33`, `2026-08`, `2026-Q3`, `2026`.
 | | |
 |---|---|
 | Aktywności | 47 (38 pukania + 9 telefonów), 16 budynków, 40 lokali |
-| Wskaźnik dotarcia | 85,1% — bardzo wysoko, prawie każde drzwi się otworzyły |
-| Leady / sygnały | 1 / 1 → konwersja 5,0% z odbytych rozmów |
+| Leady / sygnały | 1 / 1 → konwersja 4,3% ze wszystkich kontaktów |
 | Informacje rynkowe | 12 (2 sprzedaże w okolicy, pustostan, spadek, konkurencja) |
 | Notatki z treścią | 97,9% (średnio 59 znaków) |
 | **Follow-up** | **6,4%** — wizytówka zostawiona 2 razy na 47 kontaktów |
@@ -185,7 +184,7 @@ wprost: `--okres-klucz 2026-W33`, `2026-08`, `2026-Q3`, `2026`.
 | Indeks jakości pracy | **78/100** |
 
 Wniosek, który system wyciąga sam: to nie jest problem z ilością ani z
-odwagą — norma zrobiona w 117%, dotarcie świetne. Wąskie gardło jest **za**
+odwagą — norma zrobiona w 117%. Wąskie gardło jest **za**
 rozmową: 44 kontakty kończą się na „nie” i nie zostaje po nich nic — ani
 wizytówka, ani zaplanowany powrót. Drugi wniosek: 12 informacji rynkowych
 zebranych przy okazji jest w tej chwili wyrzucanych do notatek i nikt z nich

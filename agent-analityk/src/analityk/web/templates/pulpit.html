@@ -20,8 +20,6 @@
 <div class="kafle">
   {{ mk.kafel('Aktywności', lacznie.liczba_aktywnosci,
              'średnio ' ~ lacznie.srednio_dziennie ~ '/dzień') }}
-  {{ mk.kafel('Rozmowy', lacznie.rozmowy_odbyte,
-             'dotarcie ' ~ lacznie.wskaznik_dotarcia_proc ~ '%') }}
   {{ mk.kafel('Leady', lacznie.leady, lacznie.sygnaly ~ ' sygnałów dodatkowo') }}
   {{ mk.kafel('Follow-up', lacznie.follow_up_proc ~ '%',
              'materiał lub kolejny krok') }}
@@ -47,7 +45,7 @@
             <th class="miejsce">#</th><th>Biuro</th>
             <th class="liczba">Osób</th><th class="liczba">Aktywności</th>
             <th class="liczba">Na osobę</th><th class="liczba">Leady</th>
-            <th class="liczba">Dotarcie</th><th class="liczba">Follow-up</th>
+            <th class="liczba">Follow-up</th>
             <th class="liczba">Indeks</th><th class="liczba">Punkty</th>
           </tr>
         </thead>
@@ -69,7 +67,6 @@
               <td class="liczba">{{ b.liczba_aktywnosci }}</td>
               <td class="liczba">{{ (b.liczba_aktywnosci / b.liczba_pracujacych)|round(1) }}</td>
               <td class="liczba">{{ b.leady }}</td>
-              <td class="liczba">{{ b.wskaznik_dotarcia_proc }}%</td>
               <td class="liczba">{{ b.follow_up_proc }}%</td>
               <td class="liczba">{{ mk.odznaka(b.indeks_jakosci) }}</td>
               <td class="liczba"><strong>{{ '{:,.0f}'.format(b.punkty_razem or 0)|replace(',', ' ') }}</strong></td>
@@ -90,7 +87,7 @@
         <tr>
           <th class="miejsce">#</th><th>Pracownik</th><th>Biuro</th>
           <th class="liczba">Aktywności</th><th class="liczba">Norma</th>
-          <th class="liczba">Leady</th><th class="liczba">Dotarcie</th>
+          <th class="liczba">Leady</th>
           <th class="liczba">Notatki</th><th class="liczba">Follow-up</th>
           <th class="liczba">Indeks</th><th class="liczba">Punkty</th>
         </tr>
@@ -116,7 +113,6 @@
             {% else %}—{% endif %}
           </td>
           <td class="liczba">{{ met.leady }}</td>
-          <td class="liczba">{{ met.wskaznik_dotarcia_proc }}%</td>
           <td class="liczba">{{ met.notatki_merytoryczne_proc }}%</td>
           <td class="liczba">{{ met.follow_up_proc }}%</td>
           <td class="liczba">{{ mk.odznaka(met.indeks_jakosci) }}</td>

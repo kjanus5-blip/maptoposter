@@ -5,7 +5,7 @@ System liczy dwie różne rzeczy i **nie należy ich mylić**:
 | | Co mierzy | Skąd |
 |---|---|---|
 | **Punkty** | Oficjalna klasyfikacja sieci — to, co decyduje o rankingu i premiach | Tabele „Klasyfikacja collaboratori / koordynatorek / biur” |
-| **Indeks jakości (0–100)** | Jak dobrze wykonywana jest sama praca kontaktowa: ilość, dotarcie, jakość notatek, follow-up | Wyliczany z eksportu aktywności |
+| **Indeks jakości (0–100)** | Jak dobrze wykonywana jest sama praca kontaktowa: ilość, konwersja, jakość notatek, follow-up | Wyliczany z eksportu aktywności |
 
 Punkty mówią „ile dowiózł”. Indeks mówi „jak pracuje”. Agent może mieć zero
 punktów w słabym miesiącu i wysoki indeks, bo rzetelnie puka i notuje — i to

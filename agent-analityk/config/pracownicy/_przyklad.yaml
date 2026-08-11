@@ -20,7 +20,6 @@ obszar_farmingu:
 normy:
   dzien:
     aktywnosci: 45
-    rozmowy: 28
     leady: 1
   tydzien:
     aktywnosci: 220
@@ -32,5 +31,5 @@ cele_rozwojowe:
 
 styl_feedbacku: konkretny, bez owijania, z jednym priorytetem na tydzień
 uwagi_managera: >
-  Świetne dotarcie i wysoka odporność na odmowy. Pracujemy nad tym,
+  Wysoka odporność na odmowy. Pracujemy nad tym,
   żeby po "nie" cokolwiek zostawało.

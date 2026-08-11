@@ -67,8 +67,8 @@ class TestRoleINormy(unittest.TestCase):
                       normy={"dzien": {"aktywnosci": 99}})
         self.assertEqual(p.normy_pelne["dzien"]["aktywnosci"], 99)
         # nienadpisane pola zostają z roli
-        self.assertEqual(p.normy_pelne["dzien"]["rozmowy"],
-                         normy_dla_roli(ROLA_AGENT)["dzien"]["rozmowy"])
+        self.assertEqual(p.normy_pelne["dzien"]["leady"],
+                         normy_dla_roli(ROLA_AGENT)["dzien"]["leady"])
 
     def test_nowicjusz(self):
         self.assertTrue(Pracownik(klucz="a", imie_nazwisko="A", staz_miesiace=3).nowicjusz)

@@ -21,8 +21,7 @@ rozróżnia.
 | Etap | Wskaźnik | Status |
 |---|---|---|
 | Kontakty (pukanie, telefon) | liczba, na dzień, na budynek | ✅ |
-| Dotarcia (rozmowa z człowiekiem) | wskaźnik dotarcia = rozmowy / próby | ✅ |
-| Leady (deklaracja sprzedaży/najmu) | liczba, konwersja rozmowa → lead | ✅ |
+| Leady (deklaracja sprzedaży/najmu) | liczba, konwersja kontakt → lead | ✅ |
 | Sygnały na przyszłość | liczba, konwersja sygnał → lead po 3/6/12 mies. | ✅ / 💡 |
 | Spotkania umówione | liczba, konwersja lead → spotkanie | 🔜 |
 | Spotkania odbyte | wskaźnik odbycia (ile umówionych spotkań się odbyło) | 🔜 |
@@ -57,8 +56,7 @@ z „ma 300 kontaktów, a nic z tego nie ma” bez pojęcia dlaczego.
 
 | Wskaźnik | Co mówi | Status |
 |---|---|---|
-| Wskaźnik dotarcia | czy w ogóle rozmawia z ludźmi, czy chodzi po pustych klatkach | ✅ |
-| Konwersja rozmowa → lead/sygnał | **jakość samej rozmowy** | ✅ |
+| Konwersja kontakt → lead/sygnał | **jakość samej rozmowy** | ✅ |
 | Udział twardych odmów | zły otwieracz, zła pora, zły ton | ✅ |
 | Follow-up (materiał + kolejny krok) | czy po „nie” cokolwiek zostaje | ✅ |
 | Jakość notatek | czy dane w CRM nadają się do czegokolwiek | ✅ |
@@ -84,7 +82,7 @@ z „ma 300 kontaktów, a nic z tego nie ma” bez pojęcia dlaczego.
 | Lead bez kontaktu | > 7 dni | najdroższy błąd w tej branży | 🔜 |
 | Umowa na wyłączność wygasa | < 30 dni | utrata portfela | 🔜 |
 | Oferta bez aktywności | > 30 dni | martwy portfel udający pracę | 🔜 |
-| Sygnał wypalenia | notatki krótsze + krótszy dzień + spadek dotarcia | rotacja kosztuje więcej niż rozmowa | 💡 |
+| Sygnał wypalenia | notatki krótsze + krótszy dzień + spadek konwersji | rotacja kosztuje więcej niż rozmowa | 💡 |
 | Ryzyko koncentracji | 1 osoba > 50% wyniku biura | ryzyko biznesowe właściciela | 💡 |
 
 ---
@@ -157,7 +155,7 @@ Przy jednym dniu danych i małym zespole nie ma sensu wdrażać czterdziestu
 wskaźników naraz. Trzy, które zmieniają zachowanie natychmiast:
 
 1. **Kontakty dziennie** (norma) — pilnuje ilości.
-2. **Konwersja rozmowa → lead/sygnał** — pilnuje jakości rozmowy.
+2. **Konwersja kontakt → lead/sygnał** — pilnuje jakości rozmowy.
 3. **Follow-up %** — pilnuje tego, co zostaje po „nie”.
 
 Reszta ma sens, gdy te trzy są stabilne przez miesiąc.

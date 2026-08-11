@@ -33,16 +33,6 @@ WYNIK_NIE_WLASCICIEL = "nie_wlasciciel" # najemca / nie jest już właścicielem
 WYNIK_BRAK_KONTAKTU = "brak_kontaktu"   # nikogo nie zastał / nie odebrał
 WYNIK_NIEOKRESLONY = "nieokreslony"
 
-#: Wyniki, które oznaczają, że doszło do realnej rozmowy z człowiekiem.
-WYNIKI_Z_ROZMOWA = {
-    WYNIK_LEAD,
-    WYNIK_SYGNAL,
-    WYNIK_INFO_RYNKOWE,
-    WYNIK_ODMOWA,
-    WYNIK_BRAK_INFO,
-    WYNIK_NIE_WLASCICIEL,
-}
-
 #: Wyniki, które budują pipeline (są coś warte na przyszłość).
 WYNIKI_WARTOSCIOWE = {WYNIK_LEAD, WYNIK_SYGNAL, WYNIK_INFO_RYNKOWE}
 
@@ -76,10 +66,6 @@ class Activity:
     @property
     def godzina(self) -> int:
         return self.data.hour
-
-    @property
-    def byla_rozmowa(self) -> bool:
-        return self.wynik in WYNIKI_Z_ROZMOWA
 
     @property
     def wartosciowa(self) -> bool:

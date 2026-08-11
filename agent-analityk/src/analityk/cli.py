@@ -152,18 +152,18 @@ def cmd_zespol(args) -> int:
     biura = baza.biura()
     if biura:
         print("## Biura\n")
-        naglowki = ["#", "Biuro", "Osób", "Aktywności", "Leady", "Dotarcie", "Punkty"]
+        naglowki = ["#", "Biuro", "Osób", "Aktywności", "Leady", "Punkty"]
         print("| " + " | ".join(naglowki) + " |")
         print("|" + "|".join(["---"] * len(naglowki)) + "|")
         for poz in ranking_biur(baza, args.okres, klucz):
             m = poz["metryki"]
             if m.get("pusty"):
                 print(f"| {poz['miejsce']} | {poz['biuro'].nazwa} | "
-                      f"{m.get('liczba_pracownikow', 0)} | 0 | — | — | — |")
+                      f"{m.get('liczba_pracownikow', 0)} | 0 | — | — |")
                 continue
             print(f"| {poz['miejsce']} | {poz['biuro'].nazwa} | {m['liczba_pracownikow']} | "
                   f"{m['liczba_aktywnosci']} | {m['leady']} | "
-                  f"{m['wskaznik_dotarcia_proc']}% | **{m['punkty_razem']:,.0f}".replace(",", " ") + "** |")
+                  f"**{m['punkty_razem']:,.0f}".replace(",", " ") + "** |")
         print()
 
     grupy = {b.id: b.nazwa for b in biura}
@@ -179,14 +179,14 @@ def cmd_zespol(args) -> int:
             nazwy[p.klucz] = f"{p.imie_nazwisko} ({NAZWY_ROL[p.rola]})"
 
         print(f"## {nazwa}\n")
-        naglowki = ["#", "Pracownik", "Aktywności", "Rozmowy", "Leady", "Dotarcie",
+        naglowki = ["#", "Pracownik", "Aktywności", "Leady",
                     "Notatki", "Indeks", "Punkty"]
         print("| " + " | ".join(naglowki) + " |")
         print("|" + "|".join(["---"] * len(naglowki)) + "|")
         for poz, (kl, _punkty, _) in enumerate(ranking_zespolu(per_prac), 1):
             m = per_prac[kl]
-            print(f"| {poz} | {nazwy[kl]} | {m['liczba_aktywnosci']} | {m['rozmowy_odbyte']} | "
-                  f"{m['leady']} | {m['wskaznik_dotarcia_proc']}% | "
+            print(f"| {poz} | {nazwy[kl]} | {m['liczba_aktywnosci']} | "
+                  f"{m['leady']} | "
                   f"{m['notatki_merytoryczne_proc']}% | {m['indeks_jakosci']} | "
                   f"**{m['punkty_razem']:,.0f}".replace(",", " ") + "** |")
         print()
