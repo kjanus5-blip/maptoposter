@@ -29,7 +29,23 @@ heurystyki regułowej.
 
 ## Start — panel WWW
 
-Potrzebny jest Python 3.11 lub nowszy ([python.org/downloads](https://www.python.org/downloads/);
+### macOS: dwuklik
+
+Kliknij dwukrotnie **`start-mac.command`**. Przy pierwszym uruchomieniu skrypt
+sam przygotuje środowisko Pythona i doinstaluje zależności (chwilę to trwa),
+potem od razu startuje panel na `http://127.0.0.1:5500`.
+
+Port 5500, a nie domyślny 5000, bo na macOS 5000 zajmuje AirPlay Receiver.
+
+Gdy system pokaże ostrzeżenie o nieznanym deweloperze: kliknij plik prawym
+przyciskiem → **Otwórz** → **Otwórz**. Wystarczy raz.
+
+Potrzebny jest Python 3.11+ — sprawdzisz komendą `python3 --version`;
+jeśli go nie ma, pobierz z [python.org/downloads](https://www.python.org/downloads/).
+
+### Windows i Linux
+
+Potrzebny Python 3.11 lub nowszy ([python.org/downloads](https://www.python.org/downloads/);
 przy instalacji na Windowsie zaznacz **„Add python.exe to PATH"**).
 
 ```bash
@@ -39,7 +55,7 @@ python uruchom.py
 ```
 
 Panel wystartuje i sam otworzy się w przeglądarce pod `http://127.0.0.1:5000`.
-Zatrzymanie: `Ctrl+C` w oknie terminala. Na macOS/Linuksie wpisuj `python3`
+Zatrzymanie: `Ctrl+C` w oknie terminala. Na Linuksie wpisuj `python3`
 zamiast `python`.
 
 `uruchom.py` przyjmuje wszystkie komendy z wiersza poleceń, np.
@@ -175,6 +191,7 @@ src/analityk/
   cli.py               interfejs wiersza poleceń
   web/                 panel WWW: trasy, szablony, wykresy SVG, styl
 uruchom.py             jedno wejście dla Windows / macOS / Linux
+start-mac.command      uruchomienie na macOS przez dwuklik
 docs/                  koncepcja, KPI, punktacja, RODO i AI Act
 tests/                 88 testów: python3 -m unittest discover -s tests
 ```

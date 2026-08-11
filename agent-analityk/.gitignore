@@ -10,3 +10,6 @@ __pycache__/
 # Profile zawierają dane pracowników — w repo zostaje tylko wzorzec.
 config/pracownicy/*.yaml
 !config/pracownicy/_przyklad.yaml
+
+# Środowisko Pythona tworzone przez start-mac.command
+.venv/
