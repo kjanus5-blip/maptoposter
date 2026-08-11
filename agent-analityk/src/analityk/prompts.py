@@ -134,3 +134,33 @@ def zbuduj_prompt(profil: Pracownik, typ_okresu: str, klucz_okresu: str,
                          for w in pamiec) or "(pierwszy raport dla tej osoby)",
         notatki="\n".join(f"{i}. {n}" for i, n in enumerate(notatki, 1)) or "(brak notatek)",
     )
+
+
+SYSTEM_ZADANIA = """\
+Z notatek agenta nieruchomości wyciągasz KONKRETNE zadania i follow-upy.
+
+Dla każdej notatki, która czegoś wymaga, zwróć obiekt:
+{"i": <indeks notatki>, "typ": <typ>, "tresc": "<co zrobić, krótko>",
+ "strona": "agent"|"klient", "termin_tekst": "<fragment o terminie albo pusty>"}
+
+Typy:
+- oddzwonic — trzeba zadzwonić
+- wrocic — trzeba wrócić pod ten adres
+- wyslac — trzeba coś wysłać/dostarczyć (oferta, zdjęcia, wycena, umowa)
+- spotkanie — umówione spotkanie, wycena, oględziny
+- kontakt_do_osoby — klient podał numer/kontakt do kogoś, trzeba go zapisać
+- czekam_na_klienta — to klient ma coś zrobić (odezwać się, dosłać, zdecydować)
+- przypomnienie — temat do odświeżenia bez konkretnego zadania
+
+Zasady:
+1. "strona" to ten, kto ma wykonać ruch. "Ma wysłać zdjęcia" = klient.
+   "Mam wysłać ofertę" = agent.
+2. "tresc" to polecenie dla człowieka, maksymalnie 80 znaków. Konkret:
+   "Wysłać zdjęcia mieszkania", a nie "follow-up".
+3. Nie wymyślaj zadań. Notatka "nie chce sprzedawać" nie generuje żadnego.
+   Jedna notatka może dać 0, 1 lub kilka zadań.
+4. "termin_tekst" przepisz dosłownie z notatki ("za tydzień", "w czwartek").
+   Nie przeliczaj na datę — od tego jest kod.
+
+Zwróć wyłącznie tablicę JSON, bez komentarza.
+"""

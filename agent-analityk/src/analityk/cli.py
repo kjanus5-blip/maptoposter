@@ -30,6 +30,12 @@ from .metrics import (
 from .org import NAZWY_ROL, ROLE, Biuro
 from .punktacja import dopisz_punkty
 from .report import zbuduj_raport
+from .zadania import (
+    NAZWY_ZADAN,
+    STATUS_ZROBIONE,
+    tematy,
+    wykryj_w_aktywnosciach,
+)
 from .store import Baza
 
 
@@ -49,7 +55,7 @@ def _klucz_z_argumentow(args) -> str:
 
 def cmd_wczytaj(args) -> int:
     baza = Baza(args.baza)
-    lacznie_nowe = lacznie_dupl = 0
+    lacznie_nowe = lacznie_dupl = lacznie_zadan = 0
     for wzorzec in args.pliki:
         # glob ze stdlib radzi sobie ze ścieżkami bezwzględnymi; gdy nic nie
         # pasuje, próbujemy ścieżki dosłownie, żeby dać czytelny komunikat.
@@ -60,12 +66,16 @@ def cmd_wczytaj(args) -> int:
                 continue
             akt = sklasyfikuj(wczytaj_plik(sciezka))
             nowe, dupl = baza.zapisz_aktywnosci(akt)
+            zad_nowe, _ = baza.zapisz_zadania(wykryj_w_aktywnosciach(akt))
             lacznie_nowe += nowe
             lacznie_dupl += dupl
-            print(f"{sciezka}: {len(akt)} rekordów → {nowe} nowych, {dupl} duplikatów")
+            lacznie_zadan += zad_nowe
+            print(f"{sciezka}: {len(akt)} rekordów → {nowe} nowych, {dupl} duplikatów, "
+                  f"{zad_nowe} zadań")
 
     nowi = baza.synchronizuj_pracownikow()
-    print(f"\nRazem: {lacznie_nowe} nowych, {lacznie_dupl} pominiętych.")
+    print(f"\nRazem: {lacznie_nowe} nowych, {lacznie_dupl} pominiętych, "
+          f"{lacznie_zadan} nowych zadań do zrobienia.")
     if nowi:
         print(f"Nowe osoby w systemie: {nowi} — przypisz je do biur "
               f"(panel WWW albo `analityk pracownik --klucz X --biuro N`).")
@@ -236,6 +246,60 @@ def cmd_pracownik(args) -> int:
     return 0
 
 
+def cmd_zadania(args) -> int:
+    baza = Baza(args.baza)
+    if args.wykryj:
+        akt = baza.pobierz(pracownik=args.pracownik)
+        if args.llm:
+            from .llm import BrakKlucza, wykryj_zadania_llm
+            try:
+                zadania = wykryj_zadania_llm(akt)
+            except BrakKlucza as e:
+                print(f"! {e}", file=sys.stderr)
+                return 1
+        else:
+            zadania = wykryj_w_aktywnosciach(akt)
+        nowe, akt_ile = baza.zapisz_zadania(zadania)
+        print(f"Wykryto {len(zadania)} zadań: {nowe} nowych, {akt_ile} odświeżonych.\n")
+
+    if args.zrobione:
+        baza.ustaw_status_zadania(args.zrobione, STATUS_ZROBIONE)
+        print(f"Odhaczono: {args.zrobione}")
+        return 0
+
+    lista = baza.zadania(pracownik=args.pracownik, status=args.status,
+                         strona=args.strona or None)
+    dzis = date.today()
+    print(f"\n# Zadania ({args.status})\n")
+    naglowki = ["Termin", "Kto", "Typ", "Adres", "Do zrobienia", "Z dnia"]
+    print("| " + " | ".join(naglowki) + " |")
+    print("|" + "|".join(["---"] * len(naglowki)) + "|")
+    for z in lista:
+        znacznik = " ⚠️" if z.przeterminowane(dzis) else ""
+        print(f"| {z.termin or '—'}{znacznik} | {z.strona} | {NAZWY_ZADAN.get(z.typ, z.typ)} | "
+              f"{z.adres or '—'} | {z.tresc} | {z.dzien_zrodla} |")
+    print(f"\nRazem: {len(lista)}"
+          f" · przeterminowanych: {sum(1 for z in lista if z.przeterminowane(dzis))}")
+    return 0
+
+
+def cmd_tematy(args) -> int:
+    baza = Baza(args.baza)
+    klucz = _klucz_z_argumentow(args)
+    od, do = zakres_okresu(klucz, args.okres)
+    akt = baza.pobierz(pracownik=args.pracownik, od=od, do=do)
+    lista = tematy(akt, min_wystapien=args.min)
+    print(f"\n# Tematy z notatek — {klucz} ({len(akt)} aktywności)\n")
+    for t in lista:
+        print(f"## {t['temat']} — {t['ile']} × ({t['udzial_proc']}%)")
+        if t["budynki"]:
+            print(f"   budynki: {', '.join(t['budynki'][:8])}")
+        for p in t["przyklady"]:
+            print(f"   · {p['adres']}: {p['notatka'][:100]}")
+        print()
+    return 0
+
+
 def cmd_pamiec(args) -> int:
     baza = Baza(args.baza)
     if args.dodaj:
@@ -317,6 +381,24 @@ def zbuduj_parser() -> argparse.ArgumentParser:
     pr.add_argument("--norma-dzienna", dest="norma_dzienna", type=int)
     pr.add_argument("--uwagi")
     pr.set_defaults(func=cmd_pracownik)
+
+    zd = pod.add_parser("zadania", help="kolejka follow-upów wyłapanych z notatek")
+    zd.add_argument("--pracownik")
+    zd.add_argument("--status", default="otwarte",
+                    choices=["otwarte", "zrobione", "anulowane"])
+    zd.add_argument("--strona", choices=["agent", "klient"],
+                    help="agent = do zrobienia przez nas, klient = czekamy")
+    zd.add_argument("--wykryj", action="store_true",
+                    help="przelicz zadania na nowo ze wszystkich notatek")
+    zd.add_argument("--llm", action="store_true", help="wykrywanie modelem zamiast regułami")
+    zd.add_argument("--zrobione", metavar="ID", help="odhacz zadanie o podanym ID")
+    zd.set_defaults(func=cmd_zadania)
+
+    tm = pod.add_parser("tematy", help="powtarzające się wątki i obiekcje z notatek")
+    tm.add_argument("--pracownik")
+    tm.add_argument("--min", type=int, default=2, help="minimalna liczba wystąpień")
+    wspolne_okresu(tm)
+    tm.set_defaults(func=cmd_tematy)
 
     pm = pod.add_parser("pamiec", help="pamięć agenta: ustalenia, zalecenia, obserwacje")
     pm.add_argument("--pracownik", required=True)

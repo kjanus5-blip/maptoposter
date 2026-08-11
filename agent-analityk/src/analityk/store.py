@@ -82,6 +82,26 @@ CREATE TABLE IF NOT EXISTS wskazniki (
     PRIMARY KEY (pracownik, okres_typ, okres_klucz, kod)
 );
 
+CREATE TABLE IF NOT EXISTS zadania (
+    id TEXT PRIMARY KEY,
+    pracownik TEXT NOT NULL,
+    aktywnosc_id TEXT NOT NULL,
+    dzien_zrodla TEXT NOT NULL,
+    typ TEXT NOT NULL,
+    tresc TEXT NOT NULL,
+    termin TEXT DEFAULT '',
+    termin_tekst TEXT DEFAULT '',
+    strona TEXT DEFAULT 'agent',
+    budynek TEXT DEFAULT '',
+    lokal TEXT DEFAULT '',
+    notatka TEXT DEFAULT '',
+    zrodlo TEXT DEFAULT 'reguly',
+    status TEXT DEFAULT 'otwarte',
+    utworzono TEXT,
+    zamkniete TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_zad_prac ON zadania(pracownik, status, termin);
+
 CREATE TABLE IF NOT EXISTS pamiec (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     pracownik TEXT NOT NULL,
@@ -379,6 +399,86 @@ class Baza:
             "tresc_md": r["tresc_md"],
             "ocena": json.loads(r["ocena_json"]) if r["ocena_json"] else None,
         }
+
+    # --- zadania i follow-upy --------------------------------------------
+
+    def zapisz_zadania(self, zadania: list) -> tuple[int, int]:
+        """Zwraca (nowe, zaktualizowane).
+
+        Ponowne wykrywanie **nie kasuje statusu** — zadanie raz odhaczone
+        zostaje odhaczone, nawet jeśli notatka źródłowa wróci przy kolejnym
+        wczytaniu pliku.
+        """
+        nowe = zaktualizowane = 0
+        teraz = datetime.now().isoformat(timespec="seconds")
+        for z in zadania:
+            istnieje = self.con.execute(
+                "SELECT 1 FROM zadania WHERE id=?", (z.id,)
+            ).fetchone()
+            self.con.execute(
+                """INSERT INTO zadania
+                     (id, pracownik, aktywnosc_id, dzien_zrodla, typ, tresc, termin,
+                      termin_tekst, strona, budynek, lokal, notatka, zrodlo, status,
+                      utworzono)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                   ON CONFLICT(id) DO UPDATE SET
+                     tresc=excluded.tresc, termin=excluded.termin,
+                     termin_tekst=excluded.termin_tekst, strona=excluded.strona,
+                     zrodlo=excluded.zrodlo""",
+                (z.id, z.pracownik, z.aktywnosc_id, z.dzien_zrodla, z.typ, z.tresc,
+                 z.termin, z.termin_tekst, z.strona, z.budynek, z.lokal, z.notatka,
+                 z.zrodlo, z.status, teraz),
+            )
+            if istnieje:
+                zaktualizowane += 1
+            else:
+                nowe += 1
+        self.con.commit()
+        return nowe, zaktualizowane
+
+    def zadania(self, pracownik: str | None = None, status: str | None = "otwarte",
+                strona: str | None = None, od: str | None = None,
+                do: str | None = None, limit: int = 500) -> list:
+        from .zadania import Zadanie
+        sql = "SELECT * FROM zadania WHERE 1=1"
+        params: list = []
+        if pracownik:
+            sql += " AND pracownik = ?"
+            params.append(pracownik)
+        if status:
+            sql += " AND status = ?"
+            params.append(status)
+        if strona:
+            sql += " AND strona = ?"
+            params.append(strona)
+        if od:
+            sql += " AND dzien_zrodla >= ?"
+            params.append(od)
+        if do:
+            sql += " AND dzien_zrodla <= ?"
+            params.append(do)
+        # bez terminu na koniec listy, reszta rosnąco po dacie
+        sql += " ORDER BY CASE WHEN termin = '' THEN 1 ELSE 0 END, termin, dzien_zrodla DESC"
+        sql += " LIMIT ?"
+        params.append(limit)
+        return [
+            Zadanie(
+                id=r["id"], pracownik=r["pracownik"], aktywnosc_id=r["aktywnosc_id"],
+                dzien_zrodla=r["dzien_zrodla"], typ=r["typ"], tresc=r["tresc"],
+                termin=r["termin"] or "", termin_tekst=r["termin_tekst"] or "",
+                strona=r["strona"] or "agent", budynek=r["budynek"] or "",
+                lokal=r["lokal"] or "", notatka=r["notatka"] or "",
+                zrodlo=r["zrodlo"] or "reguly", status=r["status"] or "otwarte",
+            )
+            for r in self.con.execute(sql, params)
+        ]
+
+    def ustaw_status_zadania(self, id_zadania: str, status: str) -> None:
+        self.con.execute(
+            "UPDATE zadania SET status=?, zamkniete=? WHERE id=?",
+            (status, datetime.now().isoformat(timespec="seconds"), id_zadania),
+        )
+        self.con.commit()
 
     # --- wskaźniki punktowane --------------------------------------------
 

@@ -1,0 +1,113 @@
+{% extends "baza.html" %}
+{% block tytul %}Do zrobienia — Agent Analityk{% endblock %}
+{% block pasek_okresu %}{% endblock %}
+
+{% macro grupa(tytul, lista, klasa='') %}
+  {% if lista %}
+    <div class="karta">
+      <h2>{{ tytul }} <span class="rola">· {{ lista|length }}</span></h2>
+      <div class="przewijane">
+        <table>
+          <thead>
+            <tr><th>Termin</th><th>Kto</th><th>Typ</th><th>Adres</th>
+                <th>Do zrobienia</th><th>Z notatki</th><th></th></tr>
+          </thead>
+          <tbody>
+          {% for z in lista %}
+            <tr>
+              <td>
+                {% if z.termin %}
+                  <span class="odznaka {{ klasa or 'neutralna' }}">{{ z.termin }}</span>
+                {% else %}<span class="notatka">—</span>{% endif %}
+              </td>
+              <td>
+                {% if z.strona == 'agent' %}<span class="odznaka neutralna">my</span>
+                {% else %}<span class="odznaka srednia">klient</span>{% endif %}
+              </td>
+              <td>{{ nazwy_zadan.get(z.typ, z.typ) }}</td>
+              <td>{{ z.adres or '—' }}</td>
+              <td><strong>{{ z.tresc }}</strong></td>
+              <td class="notatka">{{ z.notatka[:110] }}
+                <br><span style="opacity:.7">{{ z.dzien_zrodla }} ·
+                  <a href="{{ url_for('widok_pracownika', klucz=z.pracownik) }}">{{ z.pracownik }}</a>
+                </span>
+              </td>
+              <td>
+                <form method="post" action="{{ url_for('zmien_status_zadania', id_zadania=z.id) }}">
+                  <input type="hidden" name="status" value="zrobione">
+                  <input type="hidden" name="powrot" value="{{ request.full_path }}">
+                  <button type="submit" class="wtorny">Zrobione</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+{% endmacro %}
+
+{% block tresc %}
+
+<div class="naglowek-strony">
+  <h1>Do zrobienia</h1>
+  <span class="podtytul">{{ razem }} zadań wyłapanych automatycznie z notatek</span>
+</div>
+
+<div class="karta">
+  <form method="get" class="pola">
+    <div>
+      <label for="pracownik">Pracownik</label>
+      <select id="pracownik" name="pracownik" onchange="this.form.submit()">
+        <option value="">wszyscy</option>
+        {% for p in pracownicy %}
+          <option value="{{ p.klucz }}" {{ 'selected' if p.klucz == wybrany_pracownik }}>
+            {{ p.imie_nazwisko }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="strona">Po czyjej stronie</label>
+      <select id="strona" name="strona" onchange="this.form.submit()">
+        <option value="">wszystko</option>
+        <option value="agent" {{ 'selected' if strona == 'agent' }}>my — do zrobienia</option>
+        <option value="klient" {{ 'selected' if strona == 'klient' }}>klient — czekamy</option>
+      </select>
+    </div>
+    <div>
+      <label for="status">Status</label>
+      <select id="status" name="status" onchange="this.form.submit()">
+        <option value="otwarte" {{ 'selected' if status == 'otwarte' }}>otwarte</option>
+        <option value="zrobione" {{ 'selected' if status == 'zrobione' }}>zrobione</option>
+      </select>
+    </div>
+    <div><button type="submit">Filtruj</button></div>
+  </form>
+</div>
+
+{% if razem == 0 %}
+  <div class="karta">
+    <p class="pusto">Nic tu nie ma. Zadania pojawiają się automatycznie przy
+      wczytywaniu eksportu — albo przelicz je ze wszystkich notatek przyciskiem niżej.</p>
+  </div>
+{% endif %}
+
+{{ grupa('Po terminie', koszyki.po_terminie, 'slaba') }}
+{{ grupa('Na dziś', koszyki.dzis, 'dobra') }}
+{{ grupa('Ten tydzień', koszyki.ten_tydzien, 'neutralna') }}
+{{ grupa('Później', koszyki.pozniej, 'neutralna') }}
+{{ grupa('Bez terminu', koszyki.bez_terminu) }}
+
+<div class="karta">
+  <h2>Skąd biorą się te zadania</h2>
+  <p class="notatka">Wyłapywane regułami z treści notatek przy każdym wczytaniu
+    pliku. Termin liczony jest od <strong>dnia kontaktu</strong>, nie od dzisiaj —
+    „za tydzień” w notatce z 10.08 znaczy 17.08. Odhaczenie jest trwałe:
+    ponowne wczytanie tego samego eksportu nie odkopie zamkniętego zadania.</p>
+  <form method="post" action="{{ url_for('przelicz_zadania') }}" style="margin-top:10px">
+    <button type="submit" class="wtorny">Przelicz zadania ze wszystkich notatek</button>
+  </form>
+</div>
+
+{% endblock %}

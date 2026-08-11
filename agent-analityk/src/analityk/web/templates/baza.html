@@ -13,6 +13,8 @@
     <a class="logo" href="{{ url_for('pulpit') }}">Agent <span>Analityk</span></a>
     <nav class="nawigacja">
       <a href="{{ url_for('pulpit') }}"        class="{{ 'aktywna' if request.endpoint == 'pulpit' }}">Pulpit</a>
+      <a href="{{ url_for('widok_zadan') }}"   class="{{ 'aktywna' if request.endpoint == 'widok_zadan' }}">Do zrobienia</a>
+      <a href="{{ url_for('widok_tematow') }}" class="{{ 'aktywna' if request.endpoint == 'widok_tematow' }}">Tematy</a>
       <a href="{{ url_for('organizacja') }}"   class="{{ 'aktywna' if request.endpoint == 'organizacja' }}">Biura i ludzie</a>
       <a href="{{ url_for('wczytaj') }}"       class="{{ 'aktywna' if request.endpoint == 'wczytaj' }}">Wczytaj dane</a>
     </nav>

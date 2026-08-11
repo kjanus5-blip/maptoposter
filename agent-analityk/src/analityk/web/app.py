@@ -56,6 +56,13 @@ from ..punktacja import (
     wskazniki_dla_roli,
 )
 from ..report import ETYKIETY_WYNIKOW, zbuduj_raport
+from ..zadania import (
+    NAZWY_ZADAN,
+    STATUS_ANULOWANE,
+    STATUS_ZROBIONE,
+    tematy,
+    wykryj_w_aktywnosciach,
+)
 from ..store import Baza
 from . import charts
 
@@ -229,6 +236,8 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
             pasek=charts.pasek_pozycji,
             alerty=alerty(m, m_poprz),
             pamiec=b.pamiec(klucz, limit=12),
+            zadania=b.zadania(pracownik=klucz, status="otwarte"),
+            nazwy_zadan=NAZWY_ZADAN,
             leady=[a for a in akt if a.wynik in (WYNIK_LEAD, WYNIK_SYGNAL)],
             rynek=[a for a in akt if a.wynik == WYNIK_INFO_RYNKOWE],
             ocena=(zapisany or {}).get("ocena"),
@@ -329,6 +338,78 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
                      f'attachment; filename="{klucz}_{o["typ"]}_{o["klucz"]}.md"'},
         )
 
+    # --- zadania i tematy -------------------------------------------------
+
+    @app.route("/zadania")
+    def widok_zadan():
+        b = baza()
+        pracownik = request.args.get("pracownik") or None
+        strona = request.args.get("strona") or None
+        status = request.args.get("status") or "otwarte"
+        lista = b.zadania(pracownik=pracownik, status=status, strona=strona)
+        dzis = date.today()
+
+        def koszyk(z):
+            if not z.termin:
+                return "bez_terminu"
+            termin = date.fromisoformat(z.termin)
+            if termin < dzis:
+                return "po_terminie"
+            if termin == dzis:
+                return "dzis"
+            if (termin - dzis).days <= 7:
+                return "ten_tydzien"
+            return "pozniej"
+
+        koszyki = {k: [] for k in
+                   ("po_terminie", "dzis", "ten_tydzien", "pozniej", "bez_terminu")}
+        for z in lista:
+            koszyki[koszyk(z)].append(z)
+
+        return render_template(
+            "zadania.html",
+            koszyki=koszyki,
+            razem=len(lista),
+            status=status,
+            strona=strona,
+            wybrany_pracownik=pracownik,
+            pracownicy=b.pracownicy(),
+            nazwy_zadan=NAZWY_ZADAN,
+        )
+
+    @app.post("/zadania/<path:id_zadania>/status")
+    def zmien_status_zadania(id_zadania: str):
+        b = baza()
+        nowy = request.form.get("status", STATUS_ZROBIONE)
+        if nowy not in (STATUS_ZROBIONE, STATUS_ANULOWANE, "otwarte"):
+            nowy = STATUS_ZROBIONE
+        b.ustaw_status_zadania(id_zadania, nowy)
+        flash("Zadanie odhaczone." if nowy == STATUS_ZROBIONE else "Status zmieniony.", "ok")
+        return redirect(request.form.get("powrot") or url_for("widok_zadan"))
+
+    @app.post("/zadania/przelicz")
+    def przelicz_zadania():
+        """Ponowne wykrycie zadań ze wszystkich notatek — statusy zostają."""
+        b = baza()
+        zadania = wykryj_w_aktywnosciach(b.pobierz())
+        nowe, odswiezone = b.zapisz_zadania(zadania)
+        flash(f"Wykryto {len(zadania)} zadań: {nowe} nowych, {odswiezone} odświeżonych.", "ok")
+        return redirect(url_for("widok_zadan"))
+
+    @app.route("/tematy")
+    def widok_tematow():
+        b = baza()
+        o = kontekst_okresu()
+        pracownik = request.args.get("pracownik") or None
+        akt = b.pobierz(pracownik=pracownik, od=o["od"], do=o["do"])
+        return render_template(
+            "tematy.html",
+            lista=tematy(akt, min_wystapien=2),
+            ile_aktywnosci=len(akt),
+            pracownicy=b.pracownicy(),
+            wybrany_pracownik=pracownik,
+        )
+
     # --- organizacja ------------------------------------------------------
 
     @app.route("/organizacja")
@@ -415,7 +496,10 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
                 for a in akt:  # w bazie ma zostać nazwa oryginalna, nie tymczasowa
                     a.zrodlo = plik.filename
                 nowe, dupl = b.zapisz_aktywnosci(akt)
-                podsumowania.append(f"{plik.filename}: {nowe} nowych, {dupl} duplikatów")
+                zadan, _ = b.zapisz_zadania(wykryj_w_aktywnosciach(akt))
+                podsumowania.append(
+                    f"{plik.filename}: {nowe} nowych, {dupl} duplikatów, {zadan} zadań"
+                )
             except Exception as e:  # noqa: BLE001 — komunikat dla użytkownika
                 podsumowania.append(f"{plik.filename}: BŁĄD — {e}")
             finally:

@@ -16,6 +16,7 @@ from .org import Pracownik
 from .prompts import (
     SYSTEM_ANALITYK,
     SYSTEM_KLASYFIKATOR,
+    SYSTEM_ZADANIA,
     zbuduj_prompt,
 )
 
@@ -115,3 +116,44 @@ def klasyfikuj_llm(
             a.zostawiono_material = bool(pozycja.get("material", a.zostawiono_material))
             a.zaplanowany_kolejny_krok = bool(pozycja.get("krok", a.zaplanowany_kolejny_krok))
     return aktywnosci
+
+
+def wykryj_zadania_llm(aktywnosci: list[Activity], model: str = MODEL_KLASYFIKACJI,
+                       rozmiar_paczki: int = 30) -> list:
+    """Wykrywanie zadań modelem — łapie to, czego reguły nie widzą.
+
+    Model zwraca *tekst* terminu ("za tydzień"), a na datę przelicza go ten
+    sam kod co w ścieżce regułowej. Dzięki temu model nie może pomylić się
+    w arytmetyce kalendarza.
+    """
+    from .zadania import Zadanie, _id_zadania, rozwiaz_termin
+
+    klient = _klient()
+    wynik: list = []
+    for start in range(0, len(aktywnosci), rozmiar_paczki):
+        paczka = [a for a in aktywnosci[start:start + rozmiar_paczki] if a.notatka]
+        if not paczka:
+            continue
+        tresc = "\n".join(f"{i}. {a.notatka}" for i, a in enumerate(paczka))
+        odp = klient.messages.create(
+            model=model, max_tokens=4000, system=SYSTEM_ZADANIA,
+            messages=[{"role": "user", "content": tresc}],
+        )
+        for poz in _wytnij_json(odp.content[0].text):
+            i = poz.get("i")
+            if not isinstance(i, int) or not 0 <= i < len(paczka):
+                continue
+            a = paczka[i]
+            termin, tekst = rozwiaz_termin(
+                poz.get("termin_tekst") or a.notatka, a.data.date()
+            )
+            wynik.append(Zadanie(
+                id=_id_zadania(a.id, poz.get("typ", "przypomnienie")),
+                pracownik=a.pracownik, aktywnosc_id=a.id, dzien_zrodla=a.dzien,
+                typ=poz.get("typ", "przypomnienie"),
+                tresc=(poz.get("tresc") or "").strip()[:120],
+                termin=termin, termin_tekst=poz.get("termin_tekst") or tekst,
+                strona=poz.get("strona", "agent"),
+                budynek=a.budynek, lokal=a.lokal, notatka=a.notatka, zrodlo="llm",
+            ))
+    return wynik

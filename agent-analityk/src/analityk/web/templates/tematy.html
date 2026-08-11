@@ -1,0 +1,57 @@
+{% extends "baza.html" %}
+{% block tytul %}Tematy — Agent Analityk{% endblock %}
+
+{% block tresc %}
+
+<div class="naglowek-strony">
+  <h1>Tematy z notatek</h1>
+  <span class="podtytul">{{ okres.etykieta }} · {{ ile_aktywnosci }} aktywności</span>
+</div>
+
+<div class="karta">
+  <form method="get" class="pola">
+    <input type="hidden" name="okres" value="{{ okres.typ }}">
+    <input type="hidden" name="klucz" value="{{ okres.klucz }}">
+    <div>
+      <label for="pracownik">Pracownik</label>
+      <select id="pracownik" name="pracownik" onchange="this.form.submit()">
+        <option value="">cała sieć</option>
+        {% for p in pracownicy %}
+          <option value="{{ p.klucz }}" {{ 'selected' if p.klucz == wybrany_pracownik }}>
+            {{ p.imie_nazwisko }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div><button type="submit">Pokaż</button></div>
+  </form>
+</div>
+
+{% if not lista %}
+  <div class="karta"><p class="pusto">Za mało danych, żeby cokolwiek się powtórzyło.</p></div>
+{% endif %}
+
+{% for t in lista %}
+  <div class="karta">
+    <h2>{{ t.temat.replace('_', ' ')|capitalize }}
+      <span class="rola">· {{ t.ile }} × ({{ t.udzial_proc }}% kontaktów)</span></h2>
+    {% if t.budynki %}
+      <p class="notatka">Budynki: {{ t.budynki[:10]|join(', ') }}</p>
+    {% endif %}
+    <ul class="lista-czysta">
+      {% for p in t.przyklady %}
+        <li><strong>{{ p.adres or '—' }}</strong> — {{ p.notatka }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endfor %}
+
+<div class="karta">
+  <h2>Po co to jest</h2>
+  <p class="notatka">To są zdania, które zespół naprawdę słyszy pod drzwiami —
+    gotowy materiał na szkolenie i na skrypty odpowiedzi. „Obiekcja prowizji”
+    powtórzona 12 razy to konkretny temat na najbliższą odprawę, a nie ogólnik
+    z kursu. Wątki takie jak pustostany czy spadki to z kolei najcenniejsze
+    sygnały w pozyskiwaniu — warto je obrabiać osobno.</p>
+</div>
+
+{% endblock %}

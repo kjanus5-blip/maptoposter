@@ -263,6 +263,42 @@
   </form>
 </div>
 
+{% if zadania %}
+  <div class="karta">
+    <h2>Do zrobienia — wyłapane z notatek <span class="rola">· {{ zadania|length }}</span></h2>
+    <div class="przewijane">
+      <table>
+        <thead><tr><th>Termin</th><th>Kto</th><th>Typ</th><th>Adres</th>
+                   <th>Zadanie</th><th></th></tr></thead>
+        <tbody>
+        {% for z in zadania %}
+          <tr>
+            <td>
+              {% if z.przeterminowane() %}<span class="odznaka slaba">{{ z.termin }}</span>
+              {% elif z.termin %}<span class="odznaka neutralna">{{ z.termin }}</span>
+              {% else %}<span class="notatka">—</span>{% endif %}
+            </td>
+            <td>{% if z.strona == 'agent' %}<span class="odznaka neutralna">my</span>
+                {% else %}<span class="odznaka srednia">klient</span>{% endif %}</td>
+            <td>{{ nazwy_zadan.get(z.typ, z.typ) }}</td>
+            <td>{{ z.adres or '—' }}</td>
+            <td><strong>{{ z.tresc }}</strong><br>
+                <span class="notatka">{{ z.notatka[:100] }}</span></td>
+            <td>
+              <form method="post" action="{{ url_for('zmien_status_zadania', id_zadania=z.id) }}">
+                <input type="hidden" name="status" value="zrobione">
+                <input type="hidden" name="powrot" value="{{ request.full_path }}">
+                <button type="submit" class="wtorny">Zrobione</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+
 {% if leady %}
   <div class="karta">
     <h2>Do dopilnowania — leady i sygnały</h2>

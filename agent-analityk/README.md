@@ -44,9 +44,12 @@ Otwórz `http://127.0.0.1:5000` i dalej klikaj:
    jest porównywany i jakie ma normy.
 3. **Pulpit** — ranking biur i ludzi, punkty, alerty. Przełącznik okresu
    dzień/tydzień/miesiąc/kwartał/rok jest na górze każdej strony.
-4. **Karta pracownika** — pełne rozbicie punktów, porównanie z grupą,
-   wykresy, leady do dopilnowania, pamięć agenta i przycisk generowania
-   oceny AI.
+4. **Do zrobienia** — kolejka follow-upów wyłapanych automatycznie z notatek,
+   pogrupowana: po terminie / na dziś / ten tydzień / później / bez terminu.
+5. **Tematy** — powtarzające się wątki i obiekcje z notatek.
+6. **Karta pracownika** — pełne rozbicie punktów, porównanie z grupą,
+   wykresy, zadania, leady do dopilnowania, pamięć agenta i przycisk
+   generowania oceny AI.
 
 Panel słucha tylko na `127.0.0.1` — nie jest wystawiony do sieci.
 
@@ -76,6 +79,8 @@ Podgląd promptu bez płacenia za wywołanie API: dodaj `--pokaz-prompt`.
 | `serwer` | panel WWW (`--host`, `--port`) |
 | `biuro --dodaj NAZWA` / `biuro` | dodanie i lista biur |
 | `pracownik --klucz X --biuro N --rola ...` | przypisanie do biura, rola, staż, normy |
+| `zadania [--strona agent\|klient] [--wykryj] [--llm]` | kolejka follow-upów; `--zrobione ID` odhacza |
+| `tematy --okres ...` | powtarzające się wątki i obiekcje z notatek |
 | `pamiec --pracownik X --dodaj "..."` | ustalenia z 1:1 — agent pamięta je przy następnym raporcie |
 
 Okres wskazujesz przez `--data 2026-08-10` (dowolny dzień z okresu) albo
@@ -105,6 +110,40 @@ nie korzysta.
 
 ---
 
+## Zadania i follow-upy
+
+Notatka „Pan chce sprzedać za tydzień, ma wysłać zdjęcia, numer do siostry
+601 202 303” zawiera trzy różne rzeczy. System rozbija ją na:
+
+| Termin | Kto | Typ | Zadanie |
+|---|---|---|---|
+| 17.08 | my | Kontakt do zapisania | Zapisać kontakt do: siostry |
+| 17.08 | klient | Czekam na klienta | Klient ma dosłać: zdjęcia |
+
+Wyłapywanie działa automatycznie przy każdym wczytaniu pliku. Siedem typów
+zadań: zadzwonić, wrócić pod adres, wysłać/dostarczyć, spotkanie, kontakt do
+zapisania, czekam na klienta, wrócić do tematu.
+
+Trzy rzeczy, które to rozwiązanie robi świadomie:
+
+- **Termin liczy się od dnia kontaktu, nie od dzisiaj.** „Za tydzień”
+  w notatce z 10.08 to 17.08, także gdy raport otwierasz miesiąc później.
+  Rozpoznawane są formy względne („za 2 tygodnie”, „za pół roku”), dni
+  tygodnia („w czwartek”, „na piątek”), miesiące, konkretne daty i końce
+  miesiąca. Mgliste („po świętach”, „na wiosnę”) trafiają do kolejki **bez
+  daty** — system nie udaje precyzji, której nie ma.
+- **Rozróżnia, po czyjej stronie jest ruch.** „Ma wysłać zdjęcia” to
+  obietnica klienta, „mam wysłać ofertę” to Twoje zadanie. Filtr `strona`
+  pozwala oddzielić „do zrobienia” od „czekamy”.
+- **Odhaczenie jest trwałe.** Ponowne wczytanie tego samego eksportu nie
+  odkopie zamkniętego zadania.
+
+Ścieżka regułowa działa offline i za darmo. `analityk zadania --wykryj --llm`
+przelicza to samo modelem — łapie zdania złożone i literówki, ale terminy
+i tak przelicza kod, żeby model nie mógł pomylić się w kalendarzu.
+
+---
+
 ## Struktura
 
 ```
@@ -121,10 +160,11 @@ src/analityk/
   report.py            raport Markdown (działa bez LLM)
   prompts.py           prompty (system + user) — do edycji bez ruszania kodu
   llm.py               jedyne miejsce kontaktu z API Claude
+  zadania.py           wyłapywanie follow-upów, terminów i tematów z notatek
   cli.py               interfejs wiersza poleceń
   web/                 panel WWW: trasy, szablony, wykresy SVG, styl
 docs/                  koncepcja, KPI, punktacja, RODO i AI Act
-tests/                 63 testy: python3 -m unittest discover -s tests
+tests/                 88 testów: python3 -m unittest discover -s tests
 ```
 
 ## Dokumentacja
