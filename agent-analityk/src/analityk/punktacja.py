@@ -64,9 +64,12 @@ WSKAZNIKI: tuple[Wskaznik, ...] = (
     Wskaznik("NT17", "Notizie zkontaktowane", 10, ROLE_AGENT_I_BIURO),
     Wskaznik("NT15", "Spotkania acquisizione (ACQ)", 100, ROLE_AGENT_I_BIURO),
     Wskaznik("NT16", "Spotkania acquisizione (AFF)", 12.5, ROLE_AGENT_I_BIURO),
-    Wskaznik("IN1", "Nowe incarichi sprzedaż", 500, ROLE_AGENT_I_BIURO),
-    Wskaznik("IN2", "Nowe incarichi wynajem", 75, ROLE_AGENT_I_BIURO),
-    Wskaznik("IN18", "Visite mensili", 30, ROLE_AGENT_I_BIURO),
+    Wskaznik("IN1", "Nowe umowy na sprzedaż (incarico)", 500, ROLE_AGENT_I_BIURO,
+             opis="Podpisana umowa pośrednictwa na sprzedaż nieruchomości"),
+    Wskaznik("IN2", "Nowe umowy na wynajem (incarico)", 75, ROLE_AGENT_I_BIURO,
+             opis="Podpisana umowa pośrednictwa na wynajem nieruchomości"),
+    Wskaznik("IN18", "Visite mensili — miesięczna wizyta u właściciela", 30,
+             ROLE_AGENT_I_BIURO),
     Wskaznik("IN19", "Obniżka ceny", 50, ROLE_AGENT_I_BIURO),
     Wskaznik("RS1", "Sprzedaż", 2000, ROLE_AGENT_I_BIURO),
     Wskaznik("RS2", "Wynajem", 250, ROLE_AGENT_I_BIURO),
@@ -92,15 +95,23 @@ LICZNIKI_OPERACYJNE: tuple[Wskaznik, ...] = (
              "Tel ogólny, tel z propozycją, tel z bazy — połączenie do osoby"),
     Wskaznik("OFERTY", "Propozycje ofert (VEN)", 0, ROLE_WSZYSTKIE, AUTO,
              "Propozycja mieszkania złożona kupującemu"),
+    Wskaznik("CONT_SPOTKANIA", "Spotkania CONT", 0, ROLE_WSZYSTKIE, AUTO,
+             "Spotkanie z kupującym po prezentacji: omówienie procesu zakupu, "
+             "może skończyć się złożeniem oferty"),
 )
 
 KODY_OPERACYJNE = {w.kod for w in LICZNIKI_OPERACYJNE}
+
+#: Typ oznaczony tym kodem jest **świadomie** pomijany. Różni się od typu bez
+#: reguły: tam nie wiemy, co zrobić, tu wiemy, że nic nie robimy.
+KOD_POMIJANY = "POMIJANE"
 
 #: Wskaźniki pomocnicze — same nie dają punktów, ale wchodzą do ułamków bonusowych.
 WSKAZNIKI_POMOCNICZE: tuple[Wskaznik, ...] = (
     Wskaznik("NT13", "Notizie do zarządzania (mianownik bonusu)", 0, ROLE_WSZYSTKIE),
     Wskaznik("NT32", "Notizie zarządzone (licznik bonusu)", 0, ROLE_WSZYSTKIE),
-    Wskaznik("IN3", "Incarichi w portfelu (mianownik bonusu)", 0, ROLE_WSZYSTKIE),
+    Wskaznik("IN3", "Nieruchomości w ofercie — portfel umów (mianownik bonusu)", 0,
+             ROLE_WSZYSTKIE),
     Wskaznik("ZL_WSZYSTKIE", "Zlecenia razem (mianownik bonusu)", 0, ROLE_WSZYSTKIE),
     Wskaznik("ZL_PRZEANALIZOWANE", "Zlecenia przeanalizowane (licznik bonusu)", 0,
              ROLE_WSZYSTKIE),
@@ -273,9 +284,17 @@ MAPOWANIE_DOMYSLNE: tuple[tuple[str, str, str, str, str], ...] = (
     ("telefon ogolny", "", "", "TEL_WYKONANE", "Telefon ogólny"),
     ("z bazy danych", "", "", "TEL_WYKONANE", "Telefon z bazy danych"),
     ("oferta", "", "", "OFERTY", "Propozycja mieszkania (VEN)"),
+    ("cont", "spotkanie", "", "CONT_SPOTKANIA",
+     "Spotkanie z kupującym po prezentacji — omówienie procesu zakupu"),
 
-    # Celowo bez reguły — czekają na decyzję w panelu:
-    # „Ogólny", „Cont", „personale", „Aktualizacja richiesty"
+    # --- punktowane u koordynatorki ---
+    ("aktualizacja richiesty", "", "", "R6", "Uaktualnianie zleceń"),
+    ("aktualizacja richiest", "", "", "R6", "Uaktualnianie zleceń"),
+
+    # --- świadomie pomijane ---
+    ("personale", "", "", KOD_POMIJANY, "Spotkanie wewnętrzne — nie punktujemy"),
+
+    # Celowo bez reguły — czeka na decyzję w panelu: „Ogólny"
 )
 
 
@@ -373,7 +392,7 @@ def licznosci_z_aktywnosci(aktywnosci: list[Activity],
     licznosci: dict[str, float] = {}
     for a in aktywnosci:
         kod = dopasuj_kod(a, reguly)
-        if kod:
+        if kod and kod != KOD_POMIJANY:
             licznosci[kod] = licznosci.get(kod, 0) + 1
     return licznosci
 

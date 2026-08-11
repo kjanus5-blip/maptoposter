@@ -112,11 +112,11 @@ class TestMapowanieTypow(unittest.TestCase):
         self.assertEqual([t["podtyp"] for t in braki], ["Zupełnie Nowy Typ"])
 
     def test_niezmapowane_widzi_kanal(self):
-        """„Spotkanie + Cont” nie ma reguły i musi trafić na listę braków."""
-        typy = [{"kanal": "spotkanie", "podtyp": "Cont", "n": 3},
+        """Reguła „ACQ + spotkanie” nie pokrywa „ACQ + telefon”."""
+        typy = [{"kanal": "telefon", "podtyp": "Nieznany Typ", "n": 3},
                 {"kanal": "spotkanie", "podtyp": "ACQ", "n": 5}]
         braki = niezmapowane_typy(typy, MAPOWANIE_DOMYSLNE)
-        self.assertEqual([t["podtyp"] for t in braki], ["Cont"])
+        self.assertEqual([t["podtyp"] for t in braki], ["Nieznany Typ"])
 
 
 class TestRegulyZWarunkiem(unittest.TestCase):
@@ -174,10 +174,25 @@ class TestRegulyZWarunkiem(unittest.TestCase):
         )
 
     def test_typy_bez_reguly_zostaja_nieprzypisane(self):
-        """Nie zgadujemy — „Cont”, „personale” itp. czekają na decyzję."""
-        aktywnosci = [akt("Cont", "spotkanie", 1), akt("personale", "spotkanie", 2),
-                      akt("Aktualizacja richiesty", "telefon", 3)]
-        self.assertEqual(licznosci_z_aktywnosci(aktywnosci), {})
+        """Nie zgadujemy — typ, którego nikt nie opisał, czeka na decyzję."""
+        self.assertEqual(
+            licznosci_z_aktywnosci([akt("Zupełnie Nowy Typ", "spotkanie", 1)]), {}
+        )
+
+    def test_cont_i_aktualizacja(self):
+        aktywnosci = [akt("Cont", "spotkanie", 1),
+                      akt("Aktualizacja richiesty", "telefon", 2)]
+        self.assertEqual(licznosci_z_aktywnosci(aktywnosci),
+                         {"CONT_SPOTKANIA": 1, "R6": 1})
+
+    def test_pomijane_nie_wchodza_do_licznikow(self):
+        """„personale” jest świadomie pomijane — to nie to samo co brak reguły."""
+        aktywnosci = [akt("personale", "spotkanie", 1), akt("RICERCA", "bezposredni", 2)]
+        self.assertEqual(licznosci_z_aktywnosci(aktywnosci), {"IM3": 1})
+
+    def test_pomijany_typ_nie_jest_zglaszany_jako_brak(self):
+        typy = [{"kanal": "spotkanie", "podtyp": "personale", "n": 3}]
+        self.assertEqual(niezmapowane_typy(typy, MAPOWANIE_DOMYSLNE), [])
 
 
 class TestLicznikiOperacyjne(unittest.TestCase):

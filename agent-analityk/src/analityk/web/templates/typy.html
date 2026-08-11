@@ -12,8 +12,8 @@
 {% if nieprzypisanych %}
   <div class="alert">
     <strong>{{ nieprzypisanych }}</strong>
-    <span>typ(y) aktywności nie liczą się do żadnego wskaźnika — ich punkty przepadają.
-      Przypisz je w tabeli poniżej.</span>
+    <span>typ(y) aktywności nie mają jeszcze reguły — ich punkty przepadają.
+      Przypisz je w tabeli poniżej albo oznacz jako świadomie pomijane.</span>
   </div>
 {% endif %}
 
@@ -38,6 +38,8 @@
           <td>
             {% if t.nieprzypisany %}
               <span class="odznaka slaba">nie liczy się</span>
+            {% elif t.kod == kod_pomijany %}
+              <span class="odznaka neutralna">świadomie pomijane</span>
             {% elif t.warunkowy %}
               {% for k in t.kody %}<span class="odznaka neutralna">{{ k }}</span> {% endfor %}
               <div class="notatka">zależnie od warunku</div>
@@ -67,6 +69,8 @@
                       {{ w.kod }} — {{ w.nazwa }}</option>
                   {% endfor %}
                 </optgroup>
+                <option value="{{ kod_pomijany }}" {{ 'selected' if t.kod == kod_pomijany }}>
+                  — świadomie pomijaj —</option>
               </select>
               <button type="submit" class="wtorny">Zapisz</button>
             </form>
@@ -139,6 +143,7 @@
               <option value="{{ w.kod }}">{{ w.kod }} — {{ w.nazwa }}</option>
             {% endfor %}
           </optgroup>
+          <option value="{{ kod_pomijany }}">— świadomie pomijaj —</option>
         </select>
       </div>
       <div>

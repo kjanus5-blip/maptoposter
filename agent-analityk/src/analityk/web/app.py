@@ -50,6 +50,7 @@ from ..metrics import (
 from ..models import WYNIK_INFO_RYNKOWE, WYNIK_LEAD, WYNIK_SYGNAL
 from ..org import NAZWY_ROL, OPIS_ROL, ROLE, Biuro
 from ..punktacja import (
+    KOD_POMIJANY,
     LICZNIKI_OPERACYJNE,
     _pasuje_wzorzec,
     _reguly,
@@ -458,6 +459,7 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
             mapowanie=zapisane,
             wskazniki=WSKAZNIKI,
             liczniki=LICZNIKI_OPERACYJNE,
+            kod_pomijany=KOD_POMIJANY,
             kanaly=sorted({t["kanal"] for t in typy if t["kanal"]}),
             nieprzypisanych=len(braki),
         )

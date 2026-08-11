@@ -13,6 +13,13 @@ jest dokładnie ta informacja, której nie widać w samym rankingu.
 
 Rankingi (pracowników i biur) sortowane są **po punktach**.
 
+**Incarico** to w tej dokumentacji umowa pośrednictwa na sprzedaż lub wynajem
+nieruchomości — a zamiennie sama nieruchomość, którą na jej podstawie
+sprzedajemy. Stąd IN1/IN2 to nowe podpisane umowy, IN3 to portfel
+nieruchomości w ofercie, a IN18 (visita mensile) to comiesięczna wizyta
+u właściciela takiej nieruchomości. Bonus IN18/IN3 mierzy więc, jaka część
+portfela dostała w danym miesiącu wizytę.
+
 ---
 
 ## Tabela: agenci (collaboratori)
@@ -24,8 +31,8 @@ Rankingi (pracowników i biur) sortowane są **po punktach**.
 | NT17 | Notizie zkontaktowane | 10 | ręcznie |
 | NT15 | Spotkania acquisizione (ACQ) | 100 | ręcznie |
 | NT16 | Spotkania acquisizione (AFF) | 12,5 | ręcznie |
-| IN1 | Nowe incarichi sprzedaż | 500 | ręcznie |
-| IN2 | Nowe incarichi wynajem | 75 | ręcznie |
+| IN1 | Nowe umowy na sprzedaż (incarico) | 500 | ręcznie |
+| IN2 | Nowe umowy na wynajem (incarico) | 75 | ręcznie |
 | IN18 | Visite mensili | 30 | ręcznie |
 | IN19 | Obniżka ceny | 50 | ręcznie |
 | RS1 | Sprzedaż | 2000 | ręcznie |
@@ -103,12 +110,19 @@ Ustawione reguły. O wskaźniku decydują **obie kolumny** — „Modyfikuj kont
 | Telefon | `Tel na ACQ` | TEL_WYKONANE | **0** |
 | Połączenie odebrane / Telefon | `Telefon z propozycją *`, `Telefon ogólny`, `Tel ogólny`, `Telefon z bazy danych` | TEL_WYKONANE | **0** |
 | Telefon | `Oferta` | OFERTY | **0** |
+| Spotkanie | `Cont` | CONT_SPOTKANIA | **0** |
+| dowolny | `Aktualizacja richiesty` | R6 | 2 |
+| Spotkanie | `personale` | świadomie pomijane | — |
 
 Bez kanału `ACQ` byłoby nie do odróżnienia od `Tel na ACQ` — telefon w sprawie
 spotkania liczyłby się jako spotkanie warte 100 punktów.
 
-**Świadomie bez reguły** (czekają na Twoją decyzję w panelu, oznaczone jako
-„nie liczy się”): `Ogólny`, `Cont`, `personale`, `Aktualizacja richiesty`.
+Panel rozróżnia trzy stany typu: **punktowany**, **liczony bez punktów**
+i **świadomie pomijany**. Ten ostatni to nie to samo co brak reguły — typ bez
+reguły świeci się na czerwono („nie liczy się”), bo nie wiemy, co z nim
+zrobić; typ pomijany jest szary, bo decyzja zapadła.
+
+**Bez reguły** czeka jeszcze: `Ogólny`.
 
 Reguła dopasowuje się, gdy nazwa typu *zawiera* podany fragment; polskie znaki
 są ignorowane po obu stronach („Telefon ogólny” pasuje do wzorca `telefon
@@ -129,12 +143,19 @@ najdłuższy wzorzec. Bez tego gołe `acq` przechwyciłoby wiersz wynajmu.
 
 ### Liczniki operacyjne
 
-Nie wszystko, co robi zespół, jest punktowane. Telefony (`Tel ogólny`,
-`Telefon z propozycją kupna/wynajmu/dzierżawy`, `Telefon z bazy danych`,
-`Tel na ACQ`) to wykonane połączenia — liczą się jako **wykonane telefony**
-i widać je na karcie pracownika, ale dają zero punktów. Tak samo `Oferta`
-(propozycja mieszkania złożona kupującemu). To celowe rozdzielenie: praca ma
-być widoczna, nawet gdy klasyfikacja jej nie wycenia.
+Nie wszystko, co robi zespół, jest punktowane. Trzy rzeczy liczymy mimo to,
+bo bez nich obraz pracy jest niepełny:
+
+| Licznik | Co obejmuje |
+|---|---|
+| **Wykonane telefony** | `Tel ogólny`, `Telefon z propozycją kupna/wynajmu/dzierżawy`, `Telefon z bazy danych`, `Tel na ACQ` |
+| **Propozycje ofert (VEN)** | `Oferta` — propozycja mieszkania złożona kupującemu |
+| **Spotkania CONT** | spotkanie z kupującym po prezentacji: omówienie procesu zakupu, może skończyć się złożeniem oferty |
+
+Widać je na karcie pracownika, ale dają zero punktów. To celowe rozdzielenie:
+praca ma być widoczna, nawet gdy klasyfikacja jej nie wycenia. `CONT` jest tu
+szczególnie wart obserwacji — to ostatni krok przed ofertą kupna, więc jego
+liczba zapowiada, co wydarzy się w kolejnych tygodniach.
 
 **Uwaga:** R4 („propozycje telefoniczne”, 2 pkt) to wskaźnik **koordynatorki**
 z innego eksportu — nie należy go mylić z telefonami agenta w terenie.
