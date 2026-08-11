@@ -32,6 +32,7 @@ from ..benchmark import (
     metryki_biura,
     opis_dla_modelu,
     ranking_biur,
+    suma_norm,
 )
 from ..classify import sklasyfikuj
 from ..ingest import wczytaj_plik
@@ -167,7 +168,10 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
             dane_prac[p.klucz] = p
 
         wszystkie_akt = b.pobierz(od=o["od"], do=o["do"])
-        lacznie = podsumowanie(wszystkie_akt, o["typ"], zakres=(o["od"], o["do"]))
+        # norma całej sieci to suma norm ludzi — bez tego zbiorczy indeks
+        # porównywał pracę wszystkich do normy jednej osoby
+        lacznie = podsumowanie(wszystkie_akt, o["typ"], suma_norm(wszyscy),
+                               zakres=(o["od"], o["do"]))
 
         ostrzezenia = [
             (dane_prac[k], a) for k, m in per_prac.items() for a in alerty(m)

@@ -170,6 +170,22 @@ def grupy_porownawcze(baza, pracownik: Pracownik, typ_okresu: str,
 
 # --- poziom biura ---------------------------------------------------------
 
+def suma_norm(zespol: list) -> dict:
+    """Norma grupy = suma norm indywidualnych.
+
+    Zbiorczą pulę aktywności wolno porównywać tylko do zsumowanej normy.
+    Zestawienie jej z normą jednej osoby daje procenty rzędu kilkuset i
+    wygląda jak sukces, choć nie znaczy nic.
+    """
+    normy: dict = {}
+    for p in zespol:
+        for okres, wartosci in p.normy_pelne.items():
+            cel = normy.setdefault(okres, {})
+            for k, v in wartosci.items():
+                cel[k] = cel.get(k, 0) + v
+    return normy
+
+
 def metryki_biura(baza, biuro_id: int | None, typ_okresu: str,
                   klucz_okresu: str) -> dict:
     """Metryki biura liczone ze **wspólnej puli aktywności** wszystkich jego
@@ -181,14 +197,7 @@ def metryki_biura(baza, biuro_id: int | None, typ_okresu: str,
     for p in zespol:
         aktywnosci.extend(baza.pobierz(pracownik=p.klucz, od=od, do=do))
 
-    normy = {}
-    for p in zespol:  # norma biura = suma norm indywidualnych
-        for okres, wartosci in p.normy_pelne.items():
-            cel = normy.setdefault(okres, {})
-            for k, v in wartosci.items():
-                cel[k] = cel.get(k, 0) + v
-
-    m = podsumowanie(aktywnosci, typ_okresu, normy, zakres=(od, do))
+    m = podsumowanie(aktywnosci, typ_okresu, suma_norm(zespol), zakres=(od, do))
     wynik_punktowy = punkty_zespolu(baza, zespol, typ_okresu, klucz_okresu, od, do)
     m["punkty"] = wynik_punktowy
     m["punkty_razem"] = wynik_punktowy["punkty_razem"]

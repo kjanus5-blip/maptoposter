@@ -23,6 +23,7 @@ from analityk.benchmark import (  # noqa: E402
     porownaj_z_grupa,
     ranking_biur,
     statystyki,
+    suma_norm,
 )
 from analityk.metrics import etykieta_okresu, nastepny_okres, podsumowanie  # noqa: E402
 from analityk.models import Activity, zbuduj_id  # noqa: E402
@@ -72,6 +73,37 @@ class TestRoleINormy(unittest.TestCase):
     def test_nowicjusz(self):
         self.assertTrue(Pracownik(klucz="a", imie_nazwisko="A", staz_miesiace=3).nowicjusz)
         self.assertFalse(Pracownik(klucz="b", imie_nazwisko="B", staz_miesiace=24).nowicjusz)
+
+    def test_norma_grupy_to_suma_norm_ludzi(self):
+        zespol = [
+            Pracownik(klucz="a", imie_nazwisko="A", rola=ROLA_AGENT),
+            Pracownik(klucz="b", imie_nazwisko="B", rola=ROLA_AGENT),
+            Pracownik(klucz="k", imie_nazwisko="K", rola=ROLA_KOORDYNATOR),
+        ]
+        dzienna = suma_norm(zespol)["dzien"]["aktywnosci"]
+        self.assertEqual(
+            dzienna,
+            2 * normy_dla_roli(ROLA_AGENT)["dzien"]["aktywnosci"]
+            + normy_dla_roli(ROLA_KOORDYNATOR)["dzien"]["aktywnosci"],
+        )
+        self.assertEqual(suma_norm(zespol)["miesiac"]["aktywnosci"], dzienna * 21)
+
+    def test_norma_pustego_zespolu_nie_wywraca_liczenia(self):
+        self.assertEqual(suma_norm([]), {})
+
+    def test_pula_zespolu_nie_moze_isc_do_normy_jednej_osoby(self):
+        """Regresja: zbiorczy kafel na pulpicie brał domyślną normę agenta,
+        więc trzy osoby robiące dokładnie swoje normy wyglądały na 300%."""
+        zespol = [Pracownik(klucz=k, imie_nazwisko=k.upper(), rola=ROLA_AGENT)
+                  for k in ("a", "b", "c")]
+        dzienna = suma_norm(zespol)["dzien"]["aktywnosci"]
+        dzien = "2026-08-10"                                   # poniedziałek
+        pula = [akt("a", dzien, 9, notatka="x" * 40 + str(i)) for i in range(dzienna)]
+
+        zbiorczo = podsumowanie(pula, "dzien", suma_norm(zespol), zakres=(dzien, dzien))
+        jednoosobowo = podsumowanie(pula, "dzien", zakres=(dzien, dzien))
+        self.assertEqual(zbiorczo["realizacja_normy_proc"], 100)
+        self.assertGreater(jednoosobowo["realizacja_normy_proc"], 250)
 
 
 class TestStatystykiGrupy(unittest.TestCase):
