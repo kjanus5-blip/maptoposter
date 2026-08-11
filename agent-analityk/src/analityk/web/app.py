@@ -64,6 +64,7 @@ from ..punktacja import (
     niezmapowane_typy,
     wskazniki_dla_roli,
 )
+from ..pdf import BrakSilnikaPDF, czym_zrobimy_pdf, html_do_pdf
 from ..raport_html import zbuduj_raport_html
 from ..report import ETYKIETY_WYNIKOW, zbuduj_raport
 from ..zadania import (
@@ -178,6 +179,7 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
             "role": ROLE,
             "dzis": date.today().isoformat(),
             "jest_klucz_api": czy_jest_klucz(),
+            "silnik_pdf": czym_zrobimy_pdf(),
             "sciezka_env": str(sciezka_env()),
         }
 
@@ -458,6 +460,35 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
                 "Content-Disposition":
                     f'attachment; filename="{klucz}_{o["typ"]}_{o["klucz"]}.html"'})
         return Response(tresc, mimetype="text/html; charset=utf-8")
+
+    @app.route("/pracownik/<klucz>/raport.pdf")
+    def raport_pdf(klucz: str):
+        """Gotowy plik PDF — bez przechodzenia przez okno druku."""
+        b = baza()
+        o = kontekst_okresu()
+        p = b.pracownik_lub_domyslny(klucz)
+        akt, m = metryki_pracownika(b, p, o["typ"], o["klucz"])
+        _, m_poprz = metryki_pracownika(b, p, o["typ"], o["poprzedni"])
+        grupy = [] if m.get("pusty") else grupy_porownawcze(b, p, o["typ"], o["klucz"], m)
+        zapisany = b.raport(klucz, o["typ"], o["klucz"]) or {}
+        html = zbuduj_raport_html(
+            p, o["typ"], o["klucz"], m, akt, m_poprz, zapisany.get("ocena"),
+            b.pamiec(klucz, limit=10), grupy, etykieta_okresu_=o["etykieta"],
+        )
+        try:
+            dane = html_do_pdf(html)
+        except BrakSilnikaPDF as e:
+            # Wracamy na kartę pracownika, a nie na sam raport: raport jest
+            # samodzielną stroną i nie wyświetla komunikatów panelu, więc
+            # użytkownik zobaczyłby tylko, że „nic się nie stało”.
+            flash(str(e), "blad")
+            # `klucz` w adresie to pracownik, więc klucz okresu doklejamy
+            # ręcznie — tak samo robi makro `q()` w szablonach.
+            return redirect(url_for("widok_pracownika", klucz=klucz,
+                                    okres=o["typ"]) + f"&klucz={o['klucz']}")
+        return Response(dane, mimetype="application/pdf", headers={
+            "Content-Disposition":
+                f'attachment; filename="{klucz}_{o["typ"]}_{o["klucz"]}.pdf"'})
 
     @app.route("/pracownik/<klucz>/raport.md")
     def raport_md(klucz: str):

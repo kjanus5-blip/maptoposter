@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 import unittest
@@ -247,6 +248,43 @@ class TestRaporty(unittest.TestCase):
                                   "dzien", "2026-08-10", podsumowanie([], "dzien"), [])
         self.assertIn("Brak jakiejkolwiek aktywności", html)
         self.assertTrue(html.rstrip().endswith("</html>"))
+
+
+class TestPDF(unittest.TestCase):
+    """Zapis do PDF ma działać bez nowej zależności — albo uczciwie odmówić."""
+
+    def setUp(self):
+        import analityk.pdf as pdf
+        self.pdf = pdf
+        self._srodowisko = os.environ.get(pdf.ZMIENNA_PRZEGLADARKI)
+
+    def tearDown(self):
+        if self._srodowisko is None:
+            os.environ.pop(self.pdf.ZMIENNA_PRZEGLADARKI, None)
+        else:
+            os.environ[self.pdf.ZMIENNA_PRZEGLADARKI] = self._srodowisko
+
+    def test_wskazana_przegladarka_ma_pierwszenstwo(self):
+        with tempfile.NamedTemporaryFile() as udawana:
+            os.environ[self.pdf.ZMIENNA_PRZEGLADARKI] = udawana.name
+            self.assertEqual(self.pdf.znajdz_przegladarke(), udawana.name)
+
+    def test_nieistniejaca_sciezka_jest_ignorowana(self):
+        """Literówka w .env nie może wyłączyć wykrywania przeglądarki."""
+        os.environ[self.pdf.ZMIENNA_PRZEGLADARKI] = "/nie/ma/takiej/przegladarki"
+        znaleziona = self.pdf.znajdz_przegladarke()
+        self.assertNotEqual(znaleziona, "/nie/ma/takiej/przegladarki")
+
+    def test_brak_silnika_tlumaczy_co_zrobic(self):
+        from unittest import mock
+        with mock.patch.object(self.pdf, "znajdz_przegladarke", return_value=None), \
+             mock.patch.object(self.pdf, "_przez_playwright", return_value=None), \
+             mock.patch.object(self.pdf, "_przez_weasyprint", return_value=None):
+            with self.assertRaises(self.pdf.BrakSilnikaPDF) as wyjatek:
+                self.pdf.html_do_pdf("<p>test</p>")
+        tresc = str(wyjatek.exception)
+        self.assertIn("Chrome", tresc)
+        self.assertIn(self.pdf.ZMIENNA_PRZEGLADARKI, tresc)
 
 
 if __name__ == "__main__":

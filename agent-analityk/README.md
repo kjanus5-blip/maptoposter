@@ -86,12 +86,17 @@ Dalej klikaj:
 7. **Typy aktywności** — decydujesz, które typy z kolumny „Typ”/„Mobilny”
    liczą się do których wskaźników punktacji. Typy niezmapowane są wyraźnie
    oznaczone, żeby ich punkty nie przepadały niezauważone.
-8. **Raport do druku / PDF** — przycisk **pod nagłówkiem karty pracownika**
-   otwiera raport
-   jako gotową stronę: kafle z liczbami, wykresy, paski postępu, pozycja na
-   tle grupy. Wszystko w jednym pliku, bez internetu — `Cmd+P` → *Zapisz jako
-   PDF* daje dokument na rozmowę 1:1 — na górze raportu jest przycisk, który
-   otwiera to okno. Wersja `.md` została do archiwum.
+8. **Raport pracownika** — trzy przyciski pod nagłówkiem karty:
+   **Pobierz PDF** (gotowy plik), **Podejrzyj raport** (ta sama treść jako
+   strona, z przyciskiem druku) i **Pobierz .md** (wersja do archiwum).
+   Raport ma kafle z liczbami, wykresy, paski postępu i pozycję na tle grupy;
+   jest w jednym pliku i działa bez internetu.
+
+   PDF składa przeglądarka zainstalowana w systemie — **Chrome, Edge, Brave
+   albo Chromium**; program znajduje je sam. Gdy nie ma żadnej, przycisk
+   wyjaśnia to i odsyła do podglądu, gdzie `Cmd+P` → *Zapisz jako PDF* robi
+   to samo ręcznie. Przeglądarkę w nietypowym miejscu wskażesz zmienną
+   `PRZEGLADARKA_PDF` w pliku `.env`.
 9. **Karta pracownika** — trzy zakładki: *Przegląd* (punkty, porównanie z
    grupą, wykresy, alerty, pamięć agenta, ocena AI), *Do zrobienia* (jego
    follow-upy) i *Tematy* (jego notatki do akceptacji). Przy zakładkach widać
@@ -171,7 +176,7 @@ Podgląd promptu bez płacenia za wywołanie API: dodaj `--pokaz-prompt`.
 | Komenda | Do czego |
 |---|---|
 | `wczytaj PLIK...` | wczytuje eksporty (PDF/CSV/XLSX); ponowne wczytanie tego samego pliku nie tworzy duplikatów |
-| `raport --pracownik X --okres dzien\|tydzien\|miesiac\|kwartal\|rok` | pełny raport pracownika (`--html` = wersja do druku/PDF) |
+| `raport --pracownik X --okres dzien\|tydzien\|miesiac\|kwartal\|rok` | pełny raport pracownika (`--pdf` = gotowy plik PDF, `--html` = strona) |
 | `metryki --pracownik X --okres ...` | surowe liczby w JSON (do Excela, BI, własnych wykresów) |
 | `zespol --okres ...` | ranking biur i pracowników + wszystkie alerty |
 | `serwer` | panel WWW (`--host`, `--port`) |

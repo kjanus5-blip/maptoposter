@@ -31,6 +31,7 @@ from .metrics import (
 )
 from .org import NAZWY_ROL, ROLE, Biuro
 from .punktacja import dopisz_punkty
+from .pdf import BrakSilnikaPDF, html_do_pdf
 from .raport_html import zbuduj_raport_html
 from .report import zbuduj_raport
 from .zadania import (
@@ -134,7 +135,7 @@ def cmd_raport(args) -> int:
         for zal in ocena.get("plan_na_nastepny_okres", []):
             baza.dopisz_pamiec(args.pracownik, "zalecenie", zal, f"{args.okres}:{klucz}")
 
-    if args.html:
+    if args.html or args.pdf:
         # HTML powstaje z tych samych metryk — Markdown zapisujemy do bazy
         # niezależnie, żeby historia raportów była zawsze w jednym formacie.
         tresc = zbuduj_raport_html(
@@ -142,7 +143,17 @@ def cmd_raport(args) -> int:
             etykieta_okresu_=etykieta_okresu(klucz, args.okres),
         )
 
-    if args.zapisz:
+    if args.pdf:
+        katalog = Path(args.katalog_raportow) / args.pracownik
+        katalog.mkdir(parents=True, exist_ok=True)
+        plik = katalog / f"{args.okres}_{klucz}.pdf"
+        try:
+            plik.write_bytes(html_do_pdf(tresc))
+        except BrakSilnikaPDF as e:
+            print(f"! {e}", file=sys.stderr)
+            return 1
+        print(f"Zapisano: {plik}")
+    elif args.zapisz:
         katalog = Path(args.katalog_raportow) / args.pracownik
         katalog.mkdir(parents=True, exist_ok=True)
         plik = katalog / f"{args.okres}_{klucz}.{'html' if args.html else 'md'}"
@@ -368,7 +379,9 @@ def zbuduj_parser() -> argparse.ArgumentParser:
     r.add_argument("--pokaz-prompt", dest="pokaz_prompt", action="store_true",
                    help="wypisz prompt zamiast wołać API (podgląd, koszt 0)")
     r.add_argument("--html", action="store_true",
-                   help="raport jako strona HTML do wydruku/PDF zamiast Markdowna")
+                   help="raport jako strona HTML do wydruku zamiast Markdowna")
+    r.add_argument("--pdf", action="store_true",
+                   help="zapisz gotowy PDF (wymaga Chrome/Edge/Brave w systemie)")
     r.add_argument("--zapisz", action="store_true")
     r.add_argument("--katalog-raportow", dest="katalog_raportow", default="raporty")
     r.set_defaults(func=cmd_raport)

@@ -398,6 +398,28 @@ class TestPanelWWW(unittest.TestCase):
         self.assertIn("Aktywność dzień po dniu",
                       self.c.get("/?okres=miesiac").get_data(as_text=True))
 
+    def test_pobranie_pdf_zwraca_plik(self):
+        from unittest import mock
+        import analityk.web.app as modul
+        with mock.patch.object(modul, "html_do_pdf", return_value=b"%PDF-1.4 test"):
+            odp = self.c.get("/pracownik/a/raport.pdf?okres=miesiac")
+        self.assertEqual(odp.mimetype, "application/pdf")
+        self.assertIn("attachment", odp.headers["Content-Disposition"])
+        self.assertIn("a_miesiac_", odp.headers["Content-Disposition"])
+        self.assertTrue(odp.data.startswith(b"%PDF"))
+
+    def test_brak_przegladarki_nie_wywraca_panelu(self):
+        """Bez Chrome'a użytkownik ma dostać wyjaśnienie, a nie pięćsetkę."""
+        from unittest import mock
+        import analityk.web.app as modul
+        from analityk.pdf import BrakSilnikaPDF
+        with mock.patch.object(modul, "html_do_pdf",
+                               side_effect=BrakSilnikaPDF("Zainstaluj Chrome.")):
+            odp = self.c.get("/pracownik/a/raport.pdf?okres=miesiac",
+                             follow_redirects=True)
+        self.assertEqual(odp.status_code, 200)
+        self.assertIn("Zainstaluj Chrome.", odp.get_data(as_text=True))
+
     def test_karta_pracownika_ma_zakladki(self):
         tresc = self.c.get("/pracownik/a?okres=miesiac").get_data(as_text=True)
         self.assertIn("/pracownik/a/zadania", tresc)

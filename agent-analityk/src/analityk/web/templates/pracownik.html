@@ -7,10 +7,16 @@
 {% include "_naglowek_pracownika.html" %}
 
 <div class="pasek-akcji">
-  <a class="przycisk" href="{{ url_for('raport_html', klucz=p.klucz) }}{{ mk.q(okres) }}"
-     target="_blank" rel="noopener">Raport — druk / PDF</a>
+  <a class="przycisk" href="{{ url_for('raport_pdf', klucz=p.klucz) }}{{ mk.q(okres) }}">Pobierz PDF</a>
+  <a class="przycisk wtorny" href="{{ url_for('raport_html', klucz=p.klucz) }}{{ mk.q(okres) }}"
+     target="_blank" rel="noopener">Podejrzyj raport</a>
   <a class="przycisk wtorny" href="{{ url_for('raport_md', klucz=p.klucz) }}{{ mk.q(okres) }}">Pobierz .md</a>
-  <span class="notatka">Raport otworzy się w nowej karcie z przyciskiem zapisu do PDF.</span>
+  {% if silnik_pdf %}
+    <span class="notatka">PDF składa {{ silnik_pdf }} — zapis potrwa chwilę.</span>
+  {% else %}
+    <span class="notatka">Do zapisu PDF potrzebny jest Chrome, Edge albo Brave.
+      Bez nich użyj podglądu i Cmd+P → Zapisz jako PDF.</span>
+  {% endif %}
 </div>
 
 {% if m.pusty %}
