@@ -29,13 +29,23 @@ heurystyki regułowej.
 
 ## Start — panel WWW
 
+Potrzebny jest Python 3.11 lub nowszy ([python.org/downloads](https://www.python.org/downloads/);
+przy instalacji na Windowsie zaznacz **„Add python.exe to PATH"**).
+
 ```bash
 cd agent-analityk
-pip install -r requirements.txt
-PYTHONPATH=src python3 -m analityk serwer
+python -m pip install -r requirements.txt
+python uruchom.py
 ```
 
-Otwórz `http://127.0.0.1:5000` i dalej klikaj:
+Panel wystartuje i sam otworzy się w przeglądarce pod `http://127.0.0.1:5000`.
+Zatrzymanie: `Ctrl+C` w oknie terminala. Na macOS/Linuksie wpisuj `python3`
+zamiast `python`.
+
+`uruchom.py` przyjmuje wszystkie komendy z wiersza poleceń, np.
+`python uruchom.py wczytaj eksport.pdf` albo `python uruchom.py zespol --okres miesiac`.
+
+Dalej klikaj:
 
 1. **Wczytaj dane** — przeciągnij eksport z CRM (PDF, CSV albo XLSX). Ten sam
    plik można wgrać wielokrotnie, duplikaty nie powstają.
@@ -56,13 +66,14 @@ Panel słucha tylko na `127.0.0.1` — nie jest wystawiony do sieci.
 ## To samo z wiersza poleceń
 
 ```bash
-PYTHONPATH=src python3 -m analityk wczytaj ~/eksporty/analiza_2026-08-10.pdf
-PYTHONPATH=src python3 -m analityk biuro --dodaj "Biuro Centrum" --miasto Bydgoszcz
-PYTHONPATH=src python3 -m analityk pracownik --klucz jan_kowalski \
+python uruchom.py wczytaj ~/eksporty/analiza_2026-08-10.pdf
+python uruchom.py biuro --dodaj "Biuro Centrum" --miasto Bydgoszcz
+python uruchom.py pracownik --klucz jan_kowalski \
     --biuro 1 --rola agent --staz 3 --obszar Dworcowa Kniaziewicza
 
-PYTHONPATH=src python3 -m analityk zespol --okres miesiac --data 2026-08-01
-PYTHONPATH=src python3 -m analityk raport --pracownik jan_kowalski \
+python uruchom.py zespol --okres miesiac --data 2026-08-01
+python uruchom.py zadania --strona agent
+python uruchom.py raport --pracownik jan_kowalski \
     --okres tydzien --data 2026-08-10 --llm --zapisz     # --llm: ANTHROPIC_API_KEY
 ```
 
@@ -163,6 +174,7 @@ src/analityk/
   zadania.py           wyłapywanie follow-upów, terminów i tematów z notatek
   cli.py               interfejs wiersza poleceń
   web/                 panel WWW: trasy, szablony, wykresy SVG, styl
+uruchom.py             jedno wejście dla Windows / macOS / Linux
 docs/                  koncepcja, KPI, punktacja, RODO i AI Act
 tests/                 88 testów: python3 -m unittest discover -s tests
 ```
