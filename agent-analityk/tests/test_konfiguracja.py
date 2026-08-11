@@ -3,6 +3,7 @@ mapowanie typów aktywności na wskaźniki."""
 
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 import unittest
@@ -12,6 +13,7 @@ from pathlib import Path
 KORZEN = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(KORZEN / "src"))
 
+from analityk.konfiguracja import czy_jest_klucz, wczytaj_env  # noqa: E402
 from analityk.models import Activity, zbuduj_id  # noqa: E402
 from analityk.org import Biuro, Pracownik  # noqa: E402
 from analityk.org import ROLA_AGENT  # noqa: E402
@@ -36,6 +38,46 @@ def akt(podtyp: str, kanal: str = "bezposredni", i: int = 0,
         pracownik_nazwa=pracownik.upper(), data=d, kanal=kanal, podtyp=podtyp,
         notatka="n" * 30, budynek="Dworcowa 7", lokal=str(i),
     )
+
+
+class TestPlikuEnv(unittest.TestCase):
+    """Klucz API podaje się plikiem `.env` — przy uruchamianiu dwuklikiem
+    zmienne środowiskowe systemu i tak nie działają."""
+
+    def setUp(self):
+        self.stara = os.environ.pop("ANTHROPIC_API_KEY", None)
+
+    def tearDown(self):
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+        if self.stara is not None:
+            os.environ["ANTHROPIC_API_KEY"] = self.stara
+
+    def test_wczytuje_klucz(self):
+        with tempfile.TemporaryDirectory() as katalog:
+            (Path(katalog) / ".env").write_text(
+                "# komentarz\nANTHROPIC_API_KEY=\"sk-ant-test\"\n")
+            self.assertEqual(wczytaj_env(katalog), ["ANTHROPIC_API_KEY"])
+            self.assertEqual(os.environ["ANTHROPIC_API_KEY"], "sk-ant-test")
+            self.assertTrue(czy_jest_klucz())
+
+    def test_zmienna_systemowa_ma_pierwszenstwo(self):
+        os.environ["ANTHROPIC_API_KEY"] = "z-systemu"
+        with tempfile.TemporaryDirectory() as katalog:
+            (Path(katalog) / ".env").write_text("ANTHROPIC_API_KEY=z-pliku\n")
+            wczytaj_env(katalog)
+            self.assertEqual(os.environ["ANTHROPIC_API_KEY"], "z-systemu")
+
+    def test_brak_pliku_nie_wywala(self):
+        with tempfile.TemporaryDirectory() as katalog:
+            self.assertEqual(wczytaj_env(katalog), [])
+            self.assertFalse(czy_jest_klucz())
+
+    def test_puste_i_zepsute_linie_pomijane(self):
+        with tempfile.TemporaryDirectory() as katalog:
+            (Path(katalog) / ".env").write_text(
+                "\n\nbez_znaku_rownosci\nPUSTA=\nDOBRA=wartosc\n")
+            self.assertEqual(wczytaj_env(katalog), ["DOBRA"])
+            os.environ.pop("DOBRA", None)
 
 
 class TestStazZDaty(unittest.TestCase):

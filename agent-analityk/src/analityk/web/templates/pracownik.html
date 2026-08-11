@@ -267,6 +267,17 @@
     <p class="pusto">Dla tego okresu nie ma jeszcze oceny opisowej.
       Liczby powyżej są kompletne i nie wymagają modelu.</p>
   {% endif %}
+  {% if not jest_klucz_api %}
+    <div class="mala-grupa">
+      <strong>Ocena opisowa wymaga klucza API.</strong>
+      Utwórz plik <code>.env</code> w katalogu programu
+      (<code>{{ sciezka_env }}</code>) z linią
+      <code>ANTHROPIC_API_KEY=sk-ant-…</code> i uruchom panel ponownie.
+      Klucz pobierzesz z <code>console.anthropic.com</code> — to osobna,
+      płatna usługa, abonament claude.ai jej nie obejmuje.
+      Wszystko poza tą jedną sekcją działa bez klucza.
+    </div>
+  {% endif %}
   <form method="post" action="{{ url_for('generuj_ocene', klucz=p.klucz) }}" style="margin-top:10px">
     <input type="hidden" name="okres" value="{{ okres.typ }}">
     <input type="hidden" name="klucz" value="{{ okres.klucz }}">

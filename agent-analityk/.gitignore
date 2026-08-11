@@ -13,3 +13,6 @@ config/pracownicy/*.yaml
 
 # Środowisko Pythona tworzone przez start-mac.command
 .venv/
+
+# Klucz API — nigdy do repozytorium.
+.env

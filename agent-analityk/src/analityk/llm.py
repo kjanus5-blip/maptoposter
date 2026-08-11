@@ -37,8 +37,13 @@ def _klient():
             "Brak pakietu `anthropic`. Zainstaluj: pip install anthropic"
         ) from e
     if not os.environ.get("ANTHROPIC_API_KEY"):
+        from .konfiguracja import sciezka_env
         raise BrakKlucza(
-            "Brak zmiennej ANTHROPIC_API_KEY — uruchom bez --llm albo ustaw klucz."
+            "Brak klucza API. Wklej go do pliku "
+            f"{sciezka_env()} w postaci:  ANTHROPIC_API_KEY=sk-ant-...  "
+            "i uruchom program ponownie. Klucz pobierzesz z console.anthropic.com. "
+            "Wszystkie liczby, punkty i zadania działają bez klucza — wymaga go "
+            "tylko ocena opisowa."
         )
     return anthropic.Anthropic()
 

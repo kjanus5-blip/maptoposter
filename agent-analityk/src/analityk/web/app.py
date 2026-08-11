@@ -48,6 +48,7 @@ from ..metrics import (
     zakres_okresu,
 )
 from ..models import WYNIK_INFO_RYNKOWE, WYNIK_LEAD, WYNIK_SYGNAL
+from ..konfiguracja import czy_jest_klucz, sciezka_env
 from ..org import NAZWY_ROL, OPIS_ROL, ROLE, Biuro
 from ..punktacja import (
     KOD_POMIJANY,
@@ -135,6 +136,8 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
             "nazwy_rol": NAZWY_ROL,
             "role": ROLE,
             "dzis": date.today().isoformat(),
+            "jest_klucz_api": czy_jest_klucz(),
+            "sciezka_env": str(sciezka_env()),
         }
 
     def metryki_pracownika(b: Baza, p, typ: str, klucz: str):

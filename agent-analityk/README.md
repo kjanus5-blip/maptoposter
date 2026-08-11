@@ -83,6 +83,26 @@ Dalej klikaj:
 
 Panel słucha tylko na `127.0.0.1` — nie jest wystawiony do sieci.
 
+## Ocena opisowa AI — klucz API
+
+Liczby, punkty, porównania, zadania i tematy działają **bez żadnego klucza**.
+Klucza wymaga wyłącznie ocena opisowa („mocne strony / do poprawy / plan").
+
+1. Pobierz klucz z [console.anthropic.com](https://console.anthropic.com) →
+   *API Keys*. To osobna, płatna usługa — abonament claude.ai jej nie obejmuje.
+2. W katalogu programu utwórz plik `.env`:
+
+   ```bash
+   cd ~/maptoposter/agent-analityk
+   cp .env.przyklad .env
+   open -e .env        # wklej klucz, zapisz (Cmd+S), zamknij
+   ```
+
+3. Uruchom panel ponownie.
+
+Plik `.env` jest w `.gitignore` — klucz nie trafi do repozytorium. Jeśli masz
+`ANTHROPIC_API_KEY` ustawiony w systemie, ma on pierwszeństwo przed plikiem.
+
 ## Aktualizacja
 
 ```bash

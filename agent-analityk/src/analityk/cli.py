@@ -16,6 +16,7 @@ from pathlib import Path
 
 from .benchmark import grupy_porownawcze, opis_dla_modelu, ranking_biur
 from .classify import sklasyfikuj
+from .konfiguracja import wczytaj_env
 from .ingest import wczytaj_plik
 from .metrics import (
     TYPY_OKRESOW,
@@ -412,6 +413,7 @@ def zbuduj_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    wczytaj_env()          # klucz API z pliku .env, jeśli istnieje
     args = zbuduj_parser().parse_args(argv)
     return args.func(args)
 
