@@ -68,8 +68,11 @@ Dalej klikaj:
 2. **Biura i ludzie** — dodaj biura, przypisz osoby, ustaw role
    (agent / koordynator/ka / kierownik) i staż. Od tego zależy, z kim ktoś
    jest porównywany i jakie ma normy.
-3. **Pulpit** — ranking biur i ludzi, punkty, alerty. Przełącznik okresu
-   dzień/tydzień/miesiąc/kwartał/rok jest na górze każdej strony.
+3. **Pulpit** — ranking biur i ludzi, punkty, alerty. Pasek okresu na górze
+   każdej strony: wybierasz typ (dzień/tydzień/miesiąc/kwartał/rok), a obok
+   masz listę konkretnych okresów, w których są dane — więc do marca
+   przechodzisz jednym kliknięciem, nie pięcioma strzałkami. Zmiana okresu
+   zachowuje ustawione filtry.
 4. **Do zrobienia** — kolejka follow-upów wyłapanych automatycznie z notatek,
    pogrupowana: po terminie / na dziś / ten tydzień / później / bez terminu.
 5. **Tematy** — notatka po notatce, każda z etykietami (lead, sygnał,

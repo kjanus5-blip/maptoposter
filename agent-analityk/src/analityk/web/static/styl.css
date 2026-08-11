@@ -108,6 +108,8 @@ a:hover { text-decoration: underline; }
   color: var(--tekst-slaby);
 }
 .etykieta-okresu { font-weight: 600; min-width: 210px; text-align: center; }
+.wybor-okresu { display: flex; gap: 6px; align-items: center; margin: 0; }
+.wybor-okresu select { min-width: 220px; font-weight: 600; padding: 6px 9px; }
 
 /* --- karty i siatki --- */
 .karta {

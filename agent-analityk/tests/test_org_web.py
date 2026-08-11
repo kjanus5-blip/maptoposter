@@ -353,6 +353,51 @@ class TestPanelWWW(unittest.TestCase):
         self.assertEqual(mapowanie["moja regula"]["kod"], "NO10")   # własna nietknięta
         self.assertIn("ricerca", mapowanie)                   # nowe domyślne wgrane
 
+    def _opcje_okresow(self, adres: str) -> list[str]:
+        import re
+        tresc = self.c.get(adres).get_data(as_text=True)
+        form = re.search(r'<form method="get" class="wybor-okresu">.*?</form>',
+                         tresc, re.S)
+        return re.findall(r'<option value="([^"]+)"', form.group(0)) if form else []
+
+    def test_lista_okresow_zalezy_od_typu(self):
+        """Dojście strzałkami do marca zajmowało pięć kliknięć."""
+        dni = self._opcje_okresow("/?okres=dzien")
+        miesiace = self._opcje_okresow("/?okres=miesiac")
+        self.assertTrue(all(len(k) == 10 for k in dni))          # 2026-08-14
+        self.assertTrue(all(len(k) == 7 for k in miesiace))      # 2026-08
+        self.assertGreater(len(dni), len(miesiace))
+        self.assertTrue(all("W" in k for k in self._opcje_okresow("/?okres=tydzien")))
+        self.assertTrue(all("Q" in k for k in self._opcje_okresow("/?okres=kwartal")))
+
+    def test_okresy_ida_od_najnowszego(self):
+        dni = self._opcje_okresow("/?okres=dzien")
+        self.assertEqual(dni, sorted(dni, reverse=True))
+
+    def test_biezacy_okres_jest_na_liscie_nawet_bez_danych(self):
+        """Lista wyboru nie może pokazywać czegoś innego niż treść ekranu."""
+        self.assertIn("2019-03", self._opcje_okresow("/?okres=miesiac&klucz=2019-03"))
+
+    def test_zmiana_okresu_nie_kasuje_filtrow(self):
+        import re
+        tresc = self.c.get("/tematy?okres=miesiac&pracownik=a&status=wszystkie"
+                           ).get_data(as_text=True)
+        form = re.search(r'<form method="get" class="wybor-okresu">.*?</form>',
+                         tresc, re.S).group(0)
+        ukryte = dict(re.findall(r'name="(\w+)" value="([^"]*)"', form))
+        self.assertEqual(ukryte.get("pracownik"), "a")
+        self.assertEqual(ukryte.get("status"), "wszystkie")
+        self.assertNotIn("klucz", ukryte)      # klucz podaje sam select
+
+    def test_widok_dnia_nie_pokazuje_pustej_karty_wykresu(self):
+        """Karta „dzień po dniu” nie ma sensu przy jednym dniu — ma zniknąć,
+        a nie wyświetlać komunikat o braku danych."""
+        dzien = self.c.get("/?okres=dzien").get_data(as_text=True)
+        self.assertNotIn("Brak danych do wykresu", dzien)
+        self.assertNotIn("Aktywność dzień po dniu", dzien)
+        self.assertIn("Aktywność dzień po dniu",
+                      self.c.get("/?okres=miesiac").get_data(as_text=True))
+
     def test_karta_pracownika_ma_zakladki(self):
         tresc = self.c.get("/pracownik/a?okres=miesiac").get_data(as_text=True)
         self.assertIn("/pracownik/a/zadania", tresc)

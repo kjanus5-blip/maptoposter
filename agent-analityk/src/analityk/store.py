@@ -412,6 +412,16 @@ class Baza:
             )
         self.con.commit()
 
+    def dni_z_danymi(self) -> list[str]:
+        """Dni, w których cokolwiek jest w bazie — od najnowszego.
+
+        Na tej podstawie panel buduje listę okresów do wyboru, żeby nie
+        proponować tygodni i miesięcy, w których nic nie ma.
+        """
+        return [r[0] for r in self.con.execute(
+            "SELECT DISTINCT substr(data, 1, 10) AS d FROM aktywnosci ORDER BY d DESC"
+        )]
+
     # --- stan alertów -----------------------------------------------------
 
     @staticmethod

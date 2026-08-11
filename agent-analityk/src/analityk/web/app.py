@@ -158,10 +158,22 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
             "typy": TYPY_OKRESOW, "nazwy_okresow": NAZWY_OKRESOW,
         }
 
+    def dostepne_okresy(b: Baza, typ: str, biezacy: str) -> list[tuple[str, str]]:
+        """Okresy danego typu, w których są jakieś dane — od najnowszego.
+
+        Bieżący dopisujemy zawsze, nawet pusty: inaczej lista wyboru
+        pokazywałaby co innego niż to, co widać na ekranie.
+        """
+        klucze = {klucz_okresu(date.fromisoformat(d), typ) for d in b.dni_z_danymi()}
+        klucze.add(biezacy)
+        return [(k, etykieta_okresu(k, typ)) for k in sorted(klucze, reverse=True)]
+
     @app.context_processor
     def globalne():
+        o = kontekst_okresu()
         return {
-            "okres": kontekst_okresu(),
+            "okres": o,
+            "okresy_do_wyboru": dostepne_okresy(baza(), o["typ"], o["klucz"]),
             "nazwy_rol": NAZWY_ROL,
             "role": ROLE,
             "dzis": date.today().isoformat(),
@@ -215,7 +227,7 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
             zarchiwizowane=zarchiwizowane,
             pokaz_archiwum=pokaz_archiwum,
             nieprzypisani=b.nieprzypisani(),
-            wykres_dni=charts.slupki(_szereg_dzienny(wszystkie_akt, o)),
+            wykres_dni=_wykres_dni(wszystkie_akt, o),
         )
 
     # --- biuro ------------------------------------------------------------
@@ -298,7 +310,7 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
             wykres_godzin=charts.slupki(
                 [(f"{g}", n) for g, n in (m.get("rozklad_godzinowy") or {}).items()]
             ),
-            wykres_dni=charts.slupki(_szereg_dzienny(akt, o)),
+            wykres_dni=_wykres_dni(akt, o),
             wykres_wynikow=charts.paski_udzialow(
                 [(ETYKIETY_WYNIKOW.get(w, w), n) for w, n in (m.get("wyniki") or {}).items()],
                 m.get("liczba_aktywnosci"),
@@ -863,6 +875,17 @@ def _szereg_dzienny(aktywnosci, o: dict) -> list[tuple[str, int]]:
     for a in aktywnosci:
         licznik[a.dzien] = licznik.get(a.dzien, 0) + 1
     return [(d[8:10] + "." + d[5:7], n) for d, n in sorted(licznik.items())]
+
+
+def _wykres_dni(aktywnosci, o: dict) -> str:
+    """Pusty ciąg zamiast wykresu, gdy nie ma czego rysować.
+
+    `slupki([])` zwraca napis „Brak danych do wykresu”, a szablon traktował go
+    jak gotowy wykres — przy widoku jednego dnia zostawała karta z komunikatem
+    o braku danych, mimo że danych było pod dostatkiem.
+    """
+    szereg = _szereg_dzienny(aktywnosci, o)
+    return charts.slupki(szereg) if szereg else ""
 
 
 def _zespol_wg_rol(zespol, per_prac: dict) -> list[dict]:
