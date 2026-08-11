@@ -52,6 +52,7 @@
             <form method="post" action="{{ url_for('zapisz_mapowanie') }}" class="pola"
                   style="grid-template-columns: 1fr auto; gap:6px">
               <input type="hidden" name="wzorzec" value="{{ (t.podtyp or t.kanal)|lower }}">
+              <input type="hidden" name="kanal" value="{{ t.kanal }}">
               <select name="kod">
                 <option value="">— nie licz —</option>
                 <optgroup label="Punktowane">
@@ -89,12 +90,14 @@
     w wierszu idzie na NT16. Reguły z warunkiem sprawdzane są pierwsze.</p>
   <div class="przewijane">
     <table>
-      <thead><tr><th>Fragment nazwy</th><th>Warunek</th><th>Wskaźnik</th><th>Opis</th>
-                 <th>Skąd</th><th></th></tr></thead>
+      <thead><tr><th>Fragment nazwy</th><th>Kanał</th><th>Warunek</th><th>Wskaźnik</th>
+                 <th>Opis</th><th>Skąd</th><th></th></tr></thead>
       <tbody>
       {% for wzorzec, dane in mapowanie.items() %}
         <tr>
           <td><code>{{ wzorzec.split('|')[0] }}</code></td>
+          <td>{% if dane.kanal %}<code>{{ dane.kanal }}</code>
+              {% else %}<span class="notatka">dowolny</span>{% endif %}</td>
           <td>{% if dane.warunek %}<code>{{ dane.warunek }}</code>
               {% else %}<span class="notatka">—</span>{% endif %}</td>
           <td><span class="odznaka neutralna">{{ dane.kod }}</span></td>
@@ -137,6 +140,14 @@
             {% endfor %}
           </optgroup>
         </select>
+      </div>
+      <div>
+        <label for="kanal">Kanał (opcjonalnie)</label>
+        <select id="kanal" name="kanal">
+          <option value="">dowolny</option>
+          {% for k in kanaly %}<option value="{{ k }}">{{ k }}</option>{% endfor %}
+        </select>
+        <span class="notatka">kolumna „Modyfikuj kontakt”</span>
       </div>
       <div>
         <label for="warunek">Warunek (opcjonalnie)</label>

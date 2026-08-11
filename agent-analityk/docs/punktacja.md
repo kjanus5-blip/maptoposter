@@ -89,23 +89,32 @@ wszystkie typy występujące w Twoich danych wraz z licznością i tym, na jaki
 wskaźnik są przeliczane. Typ, którego nikt nie zmapował, dostaje czerwoną
 etykietę **„nie liczy się”** — nic nie ginie po cichu.
 
-Ustawione reguły:
+Ustawione reguły. O wskaźniku decydują **obie kolumny** — „Modyfikuj kontakt”
+(kanał) i „typ”:
 
-| Fragment nazwy | Warunek | Wskaźnik | Punkty |
+| Modyfikuj kontakt | typ | Wskaźnik | Punkty |
 |---|---|---|---|
-| `ricerca` | — | IM3 | 4 |
-| `acq`, `acquisizione` | — | NT15 | 100 |
-| `acq` | `wynajem` / `najem` / `affitto` | NT16 | 12,5 |
-| `aff` | — | NT16 | 12,5 |
-| `ven` (także „VEN telefoniczna”) | — | IN21 | 30 |
-| `v.m`, `vm`, `visita mensile` | — | IN18 | 30 |
-| `tel ogólny`, `propozycj`, `z bazy` | — | TEL_WYKONANE | **0 — nie punktowane** |
-| `oferta` | — | OFERTY | **0 — nie punktowane** |
+| dowolny | `RICERCA` | IM3 | 4 |
+| Spotkanie / Kontakt bezpośredni | `ACQ` | NT15 | 100 |
+| Spotkanie / Kontakt bezpośredni | `ACQ` + wynajem/najem/dzierżawa w wierszu | NT16 (AFF) | 12,5 |
+| Spotkanie | `VEN` | IN21 | 30 |
+| dowolny | `Vendita telefoniczna` | IN21 | 30 |
+| Spotkanie / Telefon | `V.M.` | IN18 | 30 |
+| Telefon | `Tel na ACQ` | TEL_WYKONANE | **0** |
+| Połączenie odebrane / Telefon | `Telefon z propozycją *`, `Telefon ogólny`, `Tel ogólny`, `Telefon z bazy danych` | TEL_WYKONANE | **0** |
+| Telefon | `Oferta` | OFERTY | **0** |
 
-Reguła dopasowuje się, gdy nazwa typu *zawiera* podany fragment. Kody do
-czterech znaków (ACQ, AFF, VEN, V.M) muszą wystąpić jako osobne słowo, żeby
-nie łapały się w środku innych wyrazów. Jeden kontakt liczy się do jednego
-wskaźnika.
+Bez kanału `ACQ` byłoby nie do odróżnienia od `Tel na ACQ` — telefon w sprawie
+spotkania liczyłby się jako spotkanie warte 100 punktów.
+
+**Świadomie bez reguły** (czekają na Twoją decyzję w panelu, oznaczone jako
+„nie liczy się”): `Ogólny`, `Cont`, `personale`, `Aktualizacja richiesty`.
+
+Reguła dopasowuje się, gdy nazwa typu *zawiera* podany fragment; polskie znaki
+są ignorowane po obu stronach („Telefon ogólny” pasuje do wzorca `telefon
+ogolny`). Kody do czterech znaków (ACQ, AFF, VEN, V.M) muszą wystąpić jako
+osobne słowo, żeby nie łapały się w środku innych wyrazów. Jeden kontakt liczy
+się do jednego wskaźnika.
 
 ### Reguły warunkowe
 
@@ -113,17 +122,19 @@ Ten sam typ może trafiać do różnych wskaźników zależnie od kontekstu. ACQ
 sprzedaż to NT15 (100 pkt), ale ACQ na wynajem to AFF, czyli NT16 (12,5 pkt).
 Reguła z **warunkiem** obsługuje to bez dublowania typów: warunek to dodatkowy
 fragment tekstu szukany **w całym wierszu** (typ, powiązanie, notatka), bo CRM
-może trzymać rozróżnienie w różnych kolumnach. Reguły z warunkiem sprawdzane
-są przed regułami bez warunku.
+może trzymać rozróżnienie w różnych kolumnach.
+
+Kolejność sprawdzania: najpierw reguły z warunkiem, potem z kanałem, potem
+najdłuższy wzorzec. Bez tego gołe `acq` przechwyciłoby wiersz wynajmu.
 
 ### Liczniki operacyjne
 
 Nie wszystko, co robi zespół, jest punktowane. Telefony (`Tel ogólny`,
-`Telefon z propozycją`, `Tel z bazy danych`) to po prostu wykonane połączenia
-— liczą się jako **wykonane telefony** i widać je na karcie pracownika, ale
-dają zero punktów. Tak samo `Oferta` (propozycja mieszkania złożona
-kupującemu). To celowe rozdzielenie: praca ma być widoczna, nawet gdy
-klasyfikacja jej nie wycenia.
+`Telefon z propozycją kupna/wynajmu/dzierżawy`, `Telefon z bazy danych`,
+`Tel na ACQ`) to wykonane połączenia — liczą się jako **wykonane telefony**
+i widać je na karcie pracownika, ale dają zero punktów. Tak samo `Oferta`
+(propozycja mieszkania złożona kupującemu). To celowe rozdzielenie: praca ma
+być widoczna, nawet gdy klasyfikacja jej nie wycenia.
 
 **Uwaga:** R4 („propozycje telefoniczne”, 2 pkt) to wskaźnik **koordynatorki**
 z innego eksportu — nie należy go mylić z telefonami agenta w terenie.

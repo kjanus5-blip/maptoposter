@@ -242,82 +242,119 @@ def punkty_biura(licznosci: dict[str, float], liczba_osob: int = 0,
 #: Wstępne mapowanie typów aktywności z CRM na kody wskaźników.
 #: Panel („Typy aktywności") pozwala je poprawić i dopisać brakujące —
 #: te wartości to tylko punkt startowy, nie prawda objawiona.
-#: Domyślne reguły: wzorzec -> (kod, opis, warunek).
-#: Warunek to dodatkowy fragment tekstu, który musi wystąpić w wierszu —
-#: dzięki temu ten sam typ trafia do różnych wskaźników zależnie od kontekstu
-#: (ACQ na wynajem to AFF/NT16, a nie NT15).
-MAPOWANIE_DOMYSLNE: dict[str, tuple[str, str, str]] = {
-    "ricerca":       ("IM3",  "Kontakty z akcji ricerca", ""),
+#: Domyślne reguły: (wzorzec typu, kanał, warunek, kod, opis).
+#:
+#: O wskaźniku decydują **obie kolumny** eksportu. „Spotkanie + ACQ" to
+#: spotkanie acquisizione warte 100 pkt, ale „Telefon + Tel na ACQ" to tylko
+#: telefon w tej sprawie — bez kanału jedno myliłoby się z drugim.
+#:
+#: Kanał pusty = reguła działa niezależnie od kolumny „Modyfikuj kontakt".
+MAPOWANIE_DOMYSLNE: tuple[tuple[str, str, str, str, str], ...] = (
+    # --- punktowane ---
+    ("ricerca", "", "", "IM3", "Kontakt z akcji ricerca"),
 
-    # ACQ: sprzedaż -> NT15, wynajem -> NT16. Reguła z warunkiem ma pierwszeństwo.
-    "acq|wynajem":   ("NT16", "ACQ na wynajem (AFF)", "wynajem"),
-    "acq|najem":     ("NT16", "ACQ na najem (AFF)", "najem"),
-    "acq|affitto":   ("NT16", "ACQ na wynajem (AFF)", "affitto"),
-    "acq":           ("NT15", "ACQ — spotkanie acquisizione (sprzedaż)", ""),
-    "acquisizione":  ("NT15", "Acquisizione (sprzedaż)", ""),
-    "aff":           ("NT16", "AFF — acquisizione na wynajem", ""),
+    # ACQ: spotkanie na sprzedaż -> NT15, na wynajem -> NT16 (AFF)
+    ("acq", "spotkanie", "wynajem", "NT16", "Spotkanie ACQ na wynajem (AFF)"),
+    ("acq", "spotkanie", "najem", "NT16", "Spotkanie ACQ na najem (AFF)"),
+    ("acq", "spotkanie", "dzierzaw", "NT16", "Spotkanie ACQ na dzierżawę (AFF)"),
+    ("acq", "spotkanie", "", "NT15", "Spotkanie acquisizione (sprzedaż)"),
+    ("acq", "bezposredni", "wynajem", "NT16", "ACQ bezpośrednio, wynajem (AFF)"),
+    ("acq", "bezposredni", "", "NT15", "ACQ bezpośrednio (sprzedaż)"),
 
-    "ven":           ("IN21", "VEN / VEN telefoniczna — spotkanie wykonane", ""),
-    "v.m":           ("IN18", "Visita mensile", ""),
-    "vm":            ("IN18", "Visita mensile", ""),
-    "visita mensile": ("IN18", "Visita mensile", ""),
+    ("ven", "spotkanie", "", "IN21", "Spotkanie VEN wykonane"),
+    ("vendita telefoniczna", "", "", "IN21", "VEN telefoniczna"),
+    ("v.m", "spotkanie", "", "IN18", "Visita mensile"),
+    ("v.m", "telefon", "", "IN18", "Visita mensile telefonicznie"),
 
-    # Nie punktowane, ale liczone osobno:
-    "tel ogolny":    ("TEL_WYKONANE", "Telefon ogólny", ""),
-    "tel ogólny":    ("TEL_WYKONANE", "Telefon ogólny", ""),
-    "propozycj":     ("TEL_WYKONANE", "Telefon z propozycją", ""),
-    "z bazy":        ("TEL_WYKONANE", "Telefon z bazy danych", ""),
-    "oferta":        ("OFERTY", "Propozycja mieszkania (VEN)", ""),
-}
+    # --- liczone, bez punktów ---
+    ("tel na acq", "", "", "TEL_WYKONANE", "Telefon w sprawie ACQ (nie spotkanie)"),
+    ("telefon z propozycj", "", "", "TEL_WYKONANE", "Telefon z propozycją"),
+    ("tel ogolny", "", "", "TEL_WYKONANE", "Telefon ogólny"),
+    ("telefon ogolny", "", "", "TEL_WYKONANE", "Telefon ogólny"),
+    ("z bazy danych", "", "", "TEL_WYKONANE", "Telefon z bazy danych"),
+    ("oferta", "", "", "OFERTY", "Propozycja mieszkania (VEN)"),
+
+    # Celowo bez reguły — czekają na decyzję w panelu:
+    # „Ogólny", „Cont", „personale", „Aktualizacja richiesty"
+)
+
+
+_OGONKI = str.maketrans("ąćęłńóśźż", "acelnoszz")
+
+
+def _bez_ogonkow(tekst: str) -> str:
+    """Małe litery bez polskich znaków — „Telefon ogólny” ma pasować do
+    wzorca „telefon ogolny” i odwrotnie. Kropki zostają, bo „V.M.” to typ."""
+    return (tekst or "").lower().translate(_OGONKI)
 
 
 def _pasuje_wzorzec(tekst: str, wzorzec: str) -> bool:
     """Dopasowanie po całym słowie, żeby „ven” nie łapało się w środku wyrazu."""
     if not wzorzec:
         return False
-    if len(wzorzec) <= 4:                      # krótkie kody: ACQ, AFF, VEN
+    tekst, wzorzec = _bez_ogonkow(tekst), _bez_ogonkow(wzorzec)
+    if len(wzorzec) <= 4:                      # krótkie kody: ACQ, AFF, VEN, V.M
         return re.search(rf"\b{re.escape(wzorzec)}\b", tekst) is not None
     return wzorzec in tekst
 
 
-def _reguly(mapowanie: dict) -> list[tuple[str, str, str]]:
-    """Normalizuje mapowanie do listy (wzorzec, kod, warunek).
+@dataclass(frozen=True)
+class Regula:
+    wzorzec: str        # fragment kolumny „typ"
+    kanal: str          # ograniczenie na „Modyfikuj kontakt" ('' = dowolny)
+    warunek: str        # fragment szukany w całym wierszu ('' = brak warunku)
+    kod: str
 
-    Reguły z warunkiem idą pierwsze — inaczej „acq” złapałoby wiersz wynajmu,
-    zanim doszłoby do reguły „acq + wynajem”.
+
+def _reguly(mapowanie) -> list[Regula]:
+    """Normalizuje dowolny zapis mapowania do listy reguł, od najbardziej
+    szczegółowej do najogólniejszej.
+
+    Kolejność ma znaczenie: „acq + spotkanie + wynajem" musi być sprawdzone
+    przed gołym „acq", inaczej wiersz wynajmu poszedłby na NT15.
     """
-    reguly = []
-    for wzorzec, dane in mapowanie.items():
-        if isinstance(dane, dict):
-            kod, warunek = dane.get("kod", ""), dane.get("warunek", "") or ""
-        elif isinstance(dane, (tuple, list)):
-            kod = dane[0]
-            warunek = dane[2] if len(dane) > 2 else ""
-        else:
-            kod, warunek = dane, ""
-        if kod:
-            # wzorzec „acq|wynajem” to zapis skrócony: typ | warunek
-            czysty = wzorzec.split("|")[0].strip()
-            reguly.append((czysty, kod, warunek.lower()))
-    reguly.sort(key=lambda r: (not r[2], -len(r[0])))   # najpierw z warunkiem
+    reguly: list[Regula] = []
+
+    def dodaj(wzorzec: str, kanal: str, warunek: str, kod: str) -> None:
+        if kod and wzorzec:
+            reguly.append(Regula(wzorzec.split("|")[0].strip().lower(),
+                                 (kanal or "").lower(), (warunek or "").lower(), kod))
+
+    if isinstance(mapowanie, (tuple, list)):          # forma domyślna
+        for wzorzec, kanal, warunek, kod, *_ in mapowanie:
+            dodaj(wzorzec, kanal, warunek, kod)
+    else:                                              # forma z bazy albo skrócona
+        for wzorzec, dane in mapowanie.items():
+            if isinstance(dane, dict):
+                dodaj(wzorzec, dane.get("kanal", ""), dane.get("warunek", ""),
+                      dane.get("kod", ""))
+            elif isinstance(dane, (tuple, list)):
+                dodaj(wzorzec, "", dane[2] if len(dane) > 2 else "", dane[0])
+            else:
+                dodaj(wzorzec, "", "", dane)
+
+    reguly.sort(key=lambda r: (not r.warunek, not r.kanal, -len(r.wzorzec)))
     return reguly
 
 
-def dopasuj_kod(aktywnosc: Activity, reguly: list[tuple[str, str, str]]) -> str:
+def dopasuj_kod(aktywnosc: Activity, reguly: list[Regula]) -> str:
     """Kod wskaźnika dla jednej aktywności albo pusty string."""
-    tekst_typu = f"{aktywnosc.podtyp or ''} {aktywnosc.kanal or ''}".lower()
+    typ = (aktywnosc.podtyp or "").lower()
+    kanal = (aktywnosc.kanal or "").lower()
     # warunku szukamy w całym wierszu — nie wiemy z góry, w której kolumnie
     # CRM trzyma rozróżnienie sprzedaż/wynajem
     kontekst = " ".join([
         aktywnosc.podtyp or "", aktywnosc.kanal or "",
         aktywnosc.powiazanie or "", aktywnosc.notatka or "",
     ]).lower()
-    for wzorzec, kod, warunek in reguly:
-        if not _pasuje_wzorzec(tekst_typu, wzorzec):
+    for r in reguly:
+        if not _pasuje_wzorzec(typ or kanal, r.wzorzec):
             continue
-        if warunek and warunek not in kontekst:
+        if r.kanal and r.kanal != kanal:
             continue
-        return kod
+        if r.warunek and _bez_ogonkow(r.warunek) not in _bez_ogonkow(kontekst):
+            continue
+        return r.kod
     return ""
 
 
@@ -341,13 +378,19 @@ def licznosci_z_aktywnosci(aktywnosci: list[Activity],
     return licznosci
 
 
-def niezmapowane_typy(typy: list[dict], mapowanie: dict) -> list[dict]:
-    """Typy obecne w danych, którym nie odpowiada żaden wskaźnik."""
-    wzorce = [w for w, _, _ in _reguly(mapowanie)]
+def niezmapowane_typy(typy: list[dict], mapowanie) -> list[dict]:
+    """Pary (kanał, typ) obecne w danych, którym nie odpowiada żadna reguła."""
+    reguly = _reguly(mapowanie)
     braki = []
     for t in typy:
-        tekst = f"{t.get('podtyp') or ''} {t.get('kanal') or ''}".lower()
-        if not any(_pasuje_wzorzec(tekst, w) for w in wzorce):
+        typ = (t.get("podtyp") or "").lower()
+        kanal = (t.get("kanal") or "").lower()
+        pasuje = any(
+            _pasuje_wzorzec(typ or kanal, r.wzorzec)
+            and (not r.kanal or r.kanal == kanal)
+            for r in reguly
+        )
+        if not pasuje:
             braki.append(t)
     return braki
 

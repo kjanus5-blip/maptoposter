@@ -111,14 +111,21 @@ class TestMapowanieTypow(unittest.TestCase):
         braki = niezmapowane_typy(typy, MAPOWANIE_DOMYSLNE)
         self.assertEqual([t["podtyp"] for t in braki], ["Zupełnie Nowy Typ"])
 
+    def test_niezmapowane_widzi_kanal(self):
+        """„Spotkanie + Cont” nie ma reguły i musi trafić na listę braków."""
+        typy = [{"kanal": "spotkanie", "podtyp": "Cont", "n": 3},
+                {"kanal": "spotkanie", "podtyp": "ACQ", "n": 5}]
+        braki = niezmapowane_typy(typy, MAPOWANIE_DOMYSLNE)
+        self.assertEqual([t["podtyp"] for t in braki], ["Cont"])
+
 
 class TestRegulyZWarunkiem(unittest.TestCase):
     """ACQ idzie na NT15 albo NT16 zależnie od tego, czy wiersz mówi o wynajmie."""
 
     def test_acq_sprzedaz_kontra_wynajem(self):
-        sprzedaz = akt("ACQ", i=1)
+        sprzedaz = akt("ACQ", "spotkanie", 1)
         sprzedaz.powiazanie = "Mieszkanie sprzedaż Dworcowa 7"
-        wynajem = akt("ACQ", i=2)
+        wynajem = akt("ACQ", "spotkanie", 2)
         wynajem.powiazanie = "Mieszkanie wynajem Dworcowa 9"
         licznosci = licznosci_z_aktywnosci([sprzedaz, wynajem])
         self.assertEqual(licznosci, {"NT15": 1, "NT16": 1})
@@ -134,7 +141,7 @@ class TestRegulyZWarunkiem(unittest.TestCase):
 
     def test_warunek_szukany_w_calym_wierszu(self):
         """Nie wiemy, w której kolumnie CRM trzyma rozróżnienie — szukamy wszędzie."""
-        mapowanie = {"acq|w": {"kod": "NT16", "warunek": "wynajem"}}
+        mapowanie = {"acq": {"kod": "NT16", "warunek": "wynajem"}}
         w_notatce = akt("ACQ", i=4)
         w_notatce.notatka = "klient pyta o wynajem"
         w_powiazaniu = akt("ACQ", i=5)
@@ -142,10 +149,35 @@ class TestRegulyZWarunkiem(unittest.TestCase):
         self.assertEqual(licznosci_z_aktywnosci([w_notatce, w_powiazaniu], mapowanie),
                          {"NT16": 2})
 
-    def test_ven_i_vm(self):
-        aktywnosci = [akt("VEN", i=1), akt("VEN telefoniczna", "telefon", 2),
-                      akt("V.M", i=3)]
-        self.assertEqual(licznosci_z_aktywnosci(aktywnosci), {"IN21": 2, "IN18": 1})
+    def test_ven_i_vm_z_prawdziwymi_nazwami(self):
+        """Wartości dokładnie takie, jak w kolumnach eksportu."""
+        aktywnosci = [
+            akt("VEN", "spotkanie", 1),
+            akt("Vendita telefoniczna", "spotkanie", 2),
+            akt("V.M.", "spotkanie", 3),
+            akt("V.M.", "telefon", 4),
+        ]
+        self.assertEqual(licznosci_z_aktywnosci(aktywnosci), {"IN21": 2, "IN18": 2})
+
+    def test_kanal_odroznia_spotkanie_od_telefonu(self):
+        """„Spotkanie + ACQ” to 100 pkt, „Telefon + Tel na ACQ” to sam telefon."""
+        spotkanie = akt("ACQ", "spotkanie", 1)
+        telefon = akt("Tel na ACQ", "telefon", 2)
+        self.assertEqual(licznosci_z_aktywnosci([spotkanie, telefon]),
+                         {"NT15": 1, "TEL_WYKONANE": 1})
+
+    def test_polskie_znaki_w_nazwach_typow(self):
+        """„Telefon ogólny” musi trafić w regułę zapisaną bez ogonków."""
+        self.assertEqual(
+            licznosci_z_aktywnosci([akt("Telefon ogólny", "telefon", 1)]),
+            {"TEL_WYKONANE": 1},
+        )
+
+    def test_typy_bez_reguly_zostaja_nieprzypisane(self):
+        """Nie zgadujemy — „Cont”, „personale” itp. czekają na decyzję."""
+        aktywnosci = [akt("Cont", "spotkanie", 1), akt("personale", "spotkanie", 2),
+                      akt("Aktualizacja richiesty", "telefon", 3)]
+        self.assertEqual(licznosci_z_aktywnosci(aktywnosci), {})
 
 
 class TestLicznikiOperacyjne(unittest.TestCase):

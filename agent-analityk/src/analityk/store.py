@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS tematy_status (
 CREATE TABLE IF NOT EXISTS mapowanie_typow (
     wzorzec TEXT PRIMARY KEY,      -- fragment z kolumny Typ/Mobilny, małymi literami
     kod TEXT NOT NULL,             -- kod wskaźnika z punktacji
+    kanal TEXT DEFAULT '',         -- ograniczenie na kolumnę „Modyfikuj kontakt”
     warunek TEXT DEFAULT '',       -- dodatkowy fragment, który musi być w wierszu
     opis TEXT DEFAULT '',
     zrodlo TEXT DEFAULT 'reczne',  -- domyslne | reczne
@@ -154,7 +155,7 @@ class Baza:
         """
         dokladki = {
             "raporty": {"ocena_json": "TEXT"},
-            "mapowanie_typow": {"warunek": "TEXT DEFAULT ''"},
+            "mapowanie_typow": {"warunek": "TEXT DEFAULT ''", "kanal": "TEXT DEFAULT ''"},
         }
         for tabela, kolumny in dokladki.items():
             istniejace = {
@@ -353,12 +354,14 @@ class Baza:
         return {
             r["wzorzec"]: {"kod": r["kod"], "opis": r["opis"] or "",
                            "warunek": (r["warunek"] if "warunek" in r.keys() else "") or "",
+                           "kanal": (r["kanal"] if "kanal" in r.keys() else "") or "",
                            "zrodlo": r["zrodlo"] or "reczne"}
             for r in self.con.execute("SELECT * FROM mapowanie_typow ORDER BY wzorzec")
         }
 
     def ustaw_mapowanie(self, wzorzec: str, kod: str, opis: str = "",
-                        zrodlo: str = "reczne", warunek: str = "") -> None:
+                        zrodlo: str = "reczne", warunek: str = "",
+                        kanal: str = "") -> None:
         wzorzec = wzorzec.strip().lower()
         if not wzorzec:
             return
@@ -367,12 +370,14 @@ class Baza:
         else:
             self.con.execute(
                 """INSERT INTO mapowanie_typow
-                     (wzorzec, kod, warunek, opis, zrodlo, zmieniono)
-                   VALUES (?,?,?,?,?,?)
+                     (wzorzec, kod, kanal, warunek, opis, zrodlo, zmieniono)
+                   VALUES (?,?,?,?,?,?,?)
                    ON CONFLICT(wzorzec) DO UPDATE SET
-                     kod=excluded.kod, warunek=excluded.warunek, opis=excluded.opis,
+                     kod=excluded.kod, kanal=excluded.kanal,
+                     warunek=excluded.warunek, opis=excluded.opis,
                      zrodlo=excluded.zrodlo, zmieniono=excluded.zmieniono""",
-                (wzorzec, kod, (warunek or "").strip().lower(), opis, zrodlo,
+                (wzorzec, kod, (kanal or "").strip().lower(),
+                 (warunek or "").strip().lower(), opis, zrodlo,
                  datetime.now().isoformat(timespec="seconds")),
             )
         self.con.commit()
