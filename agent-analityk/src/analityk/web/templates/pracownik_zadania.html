@@ -1,0 +1,75 @@
+{% extends "baza.html" %}
+{% import "makra.html" as mk %}
+{% block tytul %}{{ p.imie_nazwisko }} — do zrobienia{% endblock %}
+
+{% macro grupa(tytul, lista, klasa='') %}
+  {% if lista %}
+    <div class="karta">
+      <h2>{{ tytul }} <span class="rola">· {{ lista|length }}</span></h2>
+      <div class="przewijane">
+        <table>
+          <thead>
+            <tr><th>Termin</th><th>Kto</th><th>Typ</th><th>Adres</th>
+                <th>Do zrobienia</th><th>Z notatki</th><th></th></tr>
+          </thead>
+          <tbody>
+          {% for z in lista %}
+            <tr>
+              <td>{% if z.termin %}<span class="odznaka {{ klasa or 'neutralna' }}">{{ z.termin }}</span>
+                  {% else %}<span class="notatka">—</span>{% endif %}</td>
+              <td>{% if z.strona == 'agent' %}<span class="odznaka neutralna">my</span>
+                  {% else %}<span class="odznaka srednia">klient</span>{% endif %}</td>
+              <td>{{ nazwy_zadan.get(z.typ, z.typ) }}</td>
+              <td>{{ z.adres or '—' }}</td>
+              <td><strong>{{ z.tresc }}</strong></td>
+              <td class="notatka">{{ z.notatka[:110] }}
+                <br><span style="opacity:.7">{{ z.dzien_zrodla }}</span></td>
+              <td>
+                <form method="post" action="{{ url_for('zmien_status_zadania', id_zadania=z.id) }}">
+                  <input type="hidden" name="status" value="{{ 'otwarte' if status == 'zrobione' else 'zrobione' }}">
+                  <input type="hidden" name="powrot" value="{{ request.full_path }}">
+                  <button type="submit" class="wtorny">
+                    {{ 'Cofnij' if status == 'zrobione' else 'Zrobione' }}</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+{% endmacro %}
+
+{% block tresc %}
+
+{% include "_naglowek_pracownika.html" %}
+
+<div class="karta">
+  <form method="get" class="pola">
+    <input type="hidden" name="okres" value="{{ okres.typ }}">
+    <input type="hidden" name="klucz" value="{{ okres.klucz }}">
+    <div>
+      <label for="status">Status</label>
+      <select id="status" name="status" onchange="this.form.submit()">
+        <option value="otwarte" {{ 'selected' if status == 'otwarte' }}>otwarte</option>
+        <option value="zrobione" {{ 'selected' if status == 'zrobione' }}>zrobione</option>
+      </select>
+    </div>
+    <div><button type="submit">Filtruj</button></div>
+  </form>
+  <p class="notatka" style="margin-top:10px">Lista celowo nie zależy od okresu
+    u góry — follow-up sprzed dwóch tygodni nadal jest do zrobienia.</p>
+</div>
+
+{% if razem == 0 %}
+  <div class="karta"><p class="pusto">Nic tu nie ma.</p></div>
+{% endif %}
+
+{{ grupa('Po terminie', koszyki.po_terminie, 'slaba') }}
+{{ grupa('Na dziś', koszyki.dzis, 'dobra') }}
+{{ grupa('Ten tydzień', koszyki.ten_tydzien, 'neutralna') }}
+{{ grupa('Później', koszyki.pozniej, 'neutralna') }}
+{{ grupa('Bez terminu', koszyki.bez_terminu) }}
+
+{% endblock %}

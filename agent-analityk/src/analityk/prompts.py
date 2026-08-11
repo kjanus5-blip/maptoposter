@@ -129,7 +129,7 @@ def zbuduj_prompt(profil: Pracownik, typ_okresu: str, klucz_okresu: str,
         metryki=js({k: v for k, v in metryki.items() if k != "rozklad_godzinowy"}),
         trend=js(trend) if trend else "(brak danych z poprzedniego okresu)",
         porownania=porownania or "(brak grupy porównawczej)",
-        alerty="\n".join(f"- {a}" for a in ostrzezenia) or "(brak)",
+        alerty="\n".join(f"- {a['tresc']}" for a in ostrzezenia) or "(brak)",
         pamiec="\n".join(f"- [{w['data'][:10]}] {w['typ']}: {w['tresc']}"
                          for w in pamiec) or "(pierwszy raport dla tej osoby)",
         notatki="\n".join(f"{i}. {n}" for i, n in enumerate(notatki, 1)) or "(brak notatek)",

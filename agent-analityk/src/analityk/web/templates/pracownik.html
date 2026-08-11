@@ -4,17 +4,7 @@
 
 {% block tresc %}
 
-<div class="naglowek-strony">
-  <h1>{{ p.imie_nazwisko }}</h1>
-  <span class="podtytul">
-    {{ nazwy_rol[p.rola] }}
-    {% if p.biuro_id %}
-      · <a href="{{ url_for('widok_biura', biuro_id=p.biuro_id) }}{{ mk.q(okres) }}">{{ p.biuro_nazwa }}</a>
-    {% else %}· <span class="odznaka srednia">bez biura</span>{% endif %}
-    {% if p.staz_miesiace %}· staż {{ p.staz_miesiace }} mies.{% endif %}
-    {% if p.nowicjusz %}<span class="odznaka neutralna">nowicjusz</span>{% endif %}
-  </span>
-</div>
+{% include "_naglowek_pracownika.html" %}
 
 {% if m.pusty %}
   <div class="karta"><p class="pusto">Brak aktywności w tym okresie.</p></div>
@@ -231,7 +221,9 @@
 {% if alerty %}
   <div class="karta">
     <h2>Alerty</h2>
-    {% for a in alerty %}<div class="alert">{{ a }}</div>{% endfor %}
+    {% for a in alerty %}{{ mk.alert_do_archiwum('', a) }}{% endfor %}
+    <p class="notatka" style="margin-top:12px">Kliknięcie chowa alert do archiwum.
+      Wróci sam, jeśli problem powtórzy się w następnym okresie.</p>
   </div>
 {% endif %}
 

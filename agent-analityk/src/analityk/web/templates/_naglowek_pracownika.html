@@ -1,0 +1,23 @@
+{% import "makra.html" as mkn %}
+<div class="naglowek-strony">
+  <h1>{{ p.imie_nazwisko }}</h1>
+  <span class="podtytul">
+    {{ nazwy_rol[p.rola] }}
+    {% if p.biuro_id %}
+      · <a href="{{ url_for('widok_biura', biuro_id=p.biuro_id) }}{{ mkn.q(okres) }}">{{ p.biuro_nazwa }}</a>
+    {% else %}· <span class="odznaka srednia">bez biura</span>{% endif %}
+    {% if p.staz_miesiace %}· staż {{ p.staz_miesiace }} mies.{% endif %}
+    {% if p.nowicjusz %}<span class="odznaka neutralna">nowicjusz</span>{% endif %}
+  </span>
+</div>
+
+<div class="zakladki-strony">
+  <a href="{{ url_for('widok_pracownika', klucz=p.klucz) }}{{ mkn.q(okres) }}"
+     class="{{ 'aktywna' if request.endpoint == 'widok_pracownika' }}">Przegląd</a>
+  <a href="{{ url_for('zadania_pracownika', klucz=p.klucz) }}{{ mkn.q(okres) }}"
+     class="{{ 'aktywna' if request.endpoint == 'zadania_pracownika' }}">
+     Do zrobienia{% if zakladki.zadania %} ({{ zakladki.zadania }}){% endif %}</a>
+  <a href="{{ url_for('tematy_pracownika', klucz=p.klucz) }}{{ mkn.q(okres) }}"
+     class="{{ 'aktywna' if request.endpoint == 'tematy_pracownika' }}">
+     Tematy{% if zakladki.tematy %} ({{ zakladki.tematy }}){% endif %}</a>
+</div>

@@ -313,47 +313,52 @@ def ranking_zespolu(per_pracownik: dict[str, dict], pole: str = "punkty_razem") 
     return sorted(pozycje, key=lambda x: x[1], reverse=True)
 
 
-def alerty(m: dict, poprzedni: dict | None = None) -> list[str]:
-    """Sygnały ostrzegawcze — rzeczy, na które szef powinien zareagować."""
-    ostrzezenia: list[str] = []
+def alerty(m: dict, poprzedni: dict | None = None) -> list[dict]:
+    """Sygnały ostrzegawcze — rzeczy, na które szef powinien zareagować.
+
+    Każdy alert ma `kod` — stałą nazwę typu, niezależną od liczb w treści.
+    Dzięki temu zarchiwizowanie alertu trzyma się jego rodzaju, a nie
+    dokładnego brzmienia, które zmienia się przy każdym wczytaniu danych.
+    """
+    ostrzezenia: list[dict] = []
+
+    def dodaj(kod: str, tresc: str) -> None:
+        ostrzezenia.append({"kod": kod, "tresc": tresc})
+
     if m.get("pusty"):
-        return ["Brak jakiejkolwiek aktywności w okresie."]
+        return [{"kod": "brak_aktywnosci", "tresc": "Brak jakiejkolwiek aktywności w okresie."}]
 
     if m.get("realizacja_normy_proc") is not None and m["realizacja_normy_proc"] < 70:
-        ostrzezenia.append(
-            f"Realizacja normy aktywności {m['realizacja_normy_proc']}% (próg 70%)."
-        )
+        dodaj("norma",
+              f"Realizacja normy aktywności {m['realizacja_normy_proc']}% (próg 70%).")
     if m.get("dni_bez_aktywnosci", 0) >= 2:
-        ostrzezenia.append(
-            f"{m['dni_bez_aktywnosci']} dni roboczych bez ani jednej aktywności w CRM."
-        )
+        dodaj("dni_puste",
+              f"{m['dni_bez_aktywnosci']} dni roboczych bez ani jednej aktywności w CRM.")
     if m["notatki_merytoryczne_proc"] < 60:
-        ostrzezenia.append(
-            f"Tylko {m['notatki_merytoryczne_proc']}% notatek ma treść — dane w CRM tracą wartość."
-        )
+        dodaj("notatki",
+              f"Tylko {m['notatki_merytoryczne_proc']}% notatek ma treść — "
+              "dane w CRM tracą wartość.")
     if m["follow_up_proc"] < 10:
-        ostrzezenia.append(
-            f"Follow-up zaplanowany w {m['follow_up_proc']}% kontaktów — praca kończy się na 'nie'."
-        )
+        dodaj("follow_up",
+              f"Follow-up zaplanowany w {m['follow_up_proc']}% kontaktów — "
+              "praca kończy się na 'nie'.")
     if m["wskaznik_odmow_twardych_proc"] > 25:
-        ostrzezenia.append(
-            f"{m['wskaznik_odmow_twardych_proc']}% rozmów kończy się twardą odmową — "
-            "sprawdź pierwsze zdanie skryptu."
-        )
+        dodaj("odmowy_twarde",
+              f"{m['wskaznik_odmow_twardych_proc']}% kontaktów kończy się twardą odmową — "
+              "sprawdź pierwsze zdanie skryptu.")
     if m["leady"] == 0 and m["liczba_aktywnosci"] >= 30:
-        ostrzezenia.append(
-            f"{m['liczba_aktywnosci']} kontaktów i zero leadów — wąskie gardło w jakości rozmowy."
-        )
+        dodaj("zero_leadow",
+              f"{m['liczba_aktywnosci']} kontaktów i zero leadów — "
+              "wąskie gardło w jakości rozmowy.")
     if m["praca_w_zlotych_godzinach_proc"] < 20 and m["kanaly"].get("bezposredni", 0) > 10:
-        ostrzezenia.append(
-            f"Tylko {m['praca_w_zlotych_godzinach_proc']}% kontaktów bezpośrednich w godz. 16–20, "
-            "gdy ludzie są w domach."
-        )
+        dodaj("zlote_godziny",
+              f"Tylko {m['praca_w_zlotych_godzinach_proc']}% kontaktów bezpośrednich "
+              "w godz. 16–20, gdy ludzie są w domach.")
     if poprzedni and not poprzedni.get("pusty"):
         spadek = m["liczba_aktywnosci"] - poprzedni["liczba_aktywnosci"]
         if poprzedni["liczba_aktywnosci"] and spadek / poprzedni["liczba_aktywnosci"] < -0.3:
-            ostrzezenia.append(
-                f"Spadek liczby aktywności o {abs(round(100 * spadek / poprzedni['liczba_aktywnosci']))}% "
-                "względem poprzedniego okresu."
-            )
+            dodaj("spadek",
+                  f"Spadek liczby aktywności o "
+                  f"{abs(round(100 * spadek / poprzedni['liczba_aktywnosci']))}% "
+                  "względem poprzedniego okresu.")
     return ostrzezenia

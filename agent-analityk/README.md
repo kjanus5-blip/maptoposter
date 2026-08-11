@@ -83,9 +83,15 @@ Dalej klikaj:
 7. **Typy aktywności** — decydujesz, które typy z kolumny „Typ”/„Mobilny”
    liczą się do których wskaźników punktacji. Typy niezmapowane są wyraźnie
    oznaczone, żeby ich punkty nie przepadały niezauważone.
-8. **Karta pracownika** — pełne rozbicie punktów, porównanie z grupą,
-   wykresy, zadania, leady do dopilnowania, pamięć agenta i przycisk
-   generowania oceny AI.
+8. **Karta pracownika** — trzy zakładki: *Przegląd* (punkty, porównanie z
+   grupą, wykresy, alerty, pamięć agenta, ocena AI), *Do zrobienia* (jego
+   follow-upy) i *Tematy* (jego notatki do akceptacji). Przy zakładkach widać
+   liczbę otwartych pozycji.
+
+Alerty na pulpicie i na karcie pracownika mają datę pierwszego pojawienia się
+(plus „od ilu dni wiszą”). Kliknięcie w alert chowa go do archiwum — wróci
+sam, jeśli ten sam problem powtórzy się w następnym okresie. Zarchiwizowane
+da się podejrzeć i przywrócić linkiem pod listą alertów.
 
 Panel słucha tylko na `127.0.0.1` — nie jest wystawiony do sieci.
 

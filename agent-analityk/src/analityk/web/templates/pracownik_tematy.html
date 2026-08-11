@@ -1,0 +1,83 @@
+{% extends "baza.html" %}
+{% import "makra.html" as mk %}
+{% block tytul %}{{ p.imie_nazwisko }} — tematy{% endblock %}
+
+{% block tresc %}
+
+{% include "_naglowek_pracownika.html" %}
+
+<div class="karta">
+  <form method="get" class="pola">
+    <input type="hidden" name="okres" value="{{ okres.typ }}">
+    <input type="hidden" name="klucz" value="{{ okres.klucz }}">
+    <div>
+      <label for="status">Status</label>
+      <select id="status" name="status" onchange="this.form.submit()">
+        <option value="nowa" {{ 'selected' if wybrany_status == 'nowa' }}>
+          do przejrzenia ({{ liczniki.nowa }})</option>
+        <option value="zaakceptowana" {{ 'selected' if wybrany_status == 'zaakceptowana' }}>
+          zaakceptowane ({{ liczniki.zaakceptowana }})</option>
+        <option value="odrzucona" {{ 'selected' if wybrany_status == 'odrzucona' }}>
+          odrzucone ({{ liczniki.odrzucona }})</option>
+        <option value="wszystkie" {{ 'selected' if wybrany_status == 'wszystkie' }}>
+          wszystkie ({{ liczniki.wszystkie }})</option>
+      </select>
+    </div>
+    <div><button type="submit">Filtruj</button></div>
+  </form>
+  <p class="notatka" style="margin-top:10px">Notatki z etykietami z okresu
+    <strong>{{ okres.etykieta }}</strong>. Zaakceptowane trafiają na
+    <a href="{{ url_for('widok_zaakceptowanych') }}">wspólną listę</a>.</p>
+</div>
+
+{% if not lista %}
+  <div class="karta"><p class="pusto">Nic tu nie ma przy tym filtrze.</p></div>
+{% endif %}
+
+{% for o in lista %}
+  <div class="karta">
+    <h2 style="margin-bottom:8px">
+      {{ o.aktywnosc.budynek }} {{ o.aktywnosc.lokal }}
+      {% if not o.aktywnosc.budynek %}<span class="rola">bez adresu</span>{% endif %}
+      {% if o.status == 'zaakceptowana' %}<span class="odznaka dobra">zaakceptowana</span>
+      {% elif o.status == 'odrzucona' %}<span class="odznaka slaba">odrzucona</span>{% endif %}
+    </h2>
+    <p class="notatka" style="margin:0 0 8px">
+      {{ o.aktywnosc.data.strftime('%d.%m.%Y %H:%M') }} ·
+      {{ o.aktywnosc.podtyp or o.aktywnosc.kanal }}
+    </p>
+    <p style="margin:0 0 10px">{{ o.aktywnosc.notatka }}</p>
+    <p style="margin:0 0 12px">
+      {% for e in o.etykiety %}
+        <span class="odznaka neutralna" style="margin-right:6px">{{ e|etykieta }}</span>
+      {% endfor %}
+    </p>
+
+    <form method="post" action="{{ url_for('ocen_notatke', aktywnosc_id=o.aktywnosc.id) }}">
+      <input type="hidden" name="powrot" value="{{ request.full_path }}">
+      <div class="pola">
+        <div style="grid-column: span 2">
+          <label for="k-{{ loop.index }}">Komentarz</label>
+          <input type="text" id="k-{{ loop.index }}" name="komentarz"
+                 value="{{ o.komentarz }}" placeholder="co z tym robimy">
+        </div>
+        <div>
+          {% if o.status == 'zaakceptowana' %}
+            <button type="submit" name="status" value="nowa" class="wtorny">Cofnij do przeglądu</button>
+          {% else %}
+            <button type="submit" name="status" value="zaakceptowana">Akceptuj</button>
+          {% endif %}
+        </div>
+        <div>
+          {% if o.status == 'odrzucona' %}
+            <button type="submit" name="status" value="nowa" class="wtorny">Przywróć</button>
+          {% else %}
+            <button type="submit" name="status" value="odrzucona" class="wtorny">Odrzuć</button>
+          {% endif %}
+        </div>
+      </div>
+    </form>
+  </div>
+{% endfor %}
+
+{% endblock %}

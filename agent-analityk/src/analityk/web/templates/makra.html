@@ -29,3 +29,23 @@
 {% endmacro %}
 
 {% macro q(okres) %}?okres={{ okres.typ }}&klucz={{ okres.klucz }}{% endmacro %}
+
+{# Alert jako klikalny przycisk — kliknięcie chowa go do archiwum.
+   `kto` puste na karcie pracownika, bo tam wiadomo, o kogo chodzi. #}
+{% macro alert_do_archiwum(kto, a, przywroc=false) %}
+  <form method="post" action="{{ url_for('archiwizuj_alert', klucz=a.klucz) }}">
+    <input type="hidden" name="powrot" value="{{ request.full_path }}">
+    {% if przywroc %}<input type="hidden" name="przywroc" value="1">{% endif %}
+    <button type="submit" class="alert {{ 'zarchiwizowany' if przywroc }}"
+            title="{{ 'Kliknij, aby przywrócić' if przywroc else 'Kliknij, aby zarchiwizować' }}">
+      {% if kto %}<strong>{{ kto }}</strong>{% endif %}
+      <span class="tresc">{{ a.tresc }}</span>
+      <span class="data">
+        {{ a.pierwszy_raz|data_pl }}
+        {%- set dni = a.pierwszy_raz|wiek_dni %}
+        {%- if dni > 0 %} · {{ dni }} dni{% endif %}
+      </span>
+      <span class="schowaj">{{ 'przywróć' if przywroc else 'schowaj' }}</span>
+    </button>
+  </form>
+{% endmacro %}

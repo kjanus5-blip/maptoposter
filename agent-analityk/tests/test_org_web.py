@@ -353,6 +353,79 @@ class TestPanelWWW(unittest.TestCase):
         self.assertEqual(mapowanie["moja regula"]["kod"], "NO10")   # własna nietknięta
         self.assertIn("ricerca", mapowanie)                   # nowe domyślne wgrane
 
+    def test_karta_pracownika_ma_zakladki(self):
+        tresc = self.c.get("/pracownik/a?okres=miesiac").get_data(as_text=True)
+        self.assertIn("/pracownik/a/zadania", tresc)
+        self.assertIn("/pracownik/a/tematy", tresc)
+
+    def test_podstrony_pracownika_odpowiadaja(self):
+        for sciezka in ("/pracownik/a/zadania", "/pracownik/a/tematy",
+                        "/pracownik/a/tematy?status=wszystkie",
+                        "/pracownik/a/zadania?status=zrobione",
+                        "/pracownik/nie_ma_takiego/tematy"):
+            with self.subTest(sciezka=sciezka):
+                self.assertEqual(self.c.get(sciezka).status_code, 200)
+
+    def test_zakladka_tematow_pokazuje_tylko_swojego_pracownika(self):
+        moje = self.c.get("/pracownik/a/tematy?okres=miesiac&status=wszystkie")
+        tresc = moje.get_data(as_text=True)
+        self.assertIn("Akceptuj", tresc)
+        self.assertNotIn("/pracownik/b/tematy", tresc)   # zakładki wiodą do „a”
+
+    def _klucze_alertow(self, adres: str = "/?okres=miesiac") -> list[str]:
+        import re
+        return re.findall(r"/alert/([^/]+)/archiwizuj",
+                          self.c.get(adres).get_data(as_text=True))
+
+    def test_alert_ma_date_i_da_sie_go_schowac(self):
+        klucze = self._klucze_alertow()
+        self.assertTrue(klucze)
+        tresc = self.c.get("/?okres=miesiac").get_data(as_text=True)
+        self.assertRegex(tresc, r'class="data">\s*\d\d\.\d\d\.\d{4}')
+
+        self.c.post(f"/alert/{klucze[0]}/archiwizuj", data={"powrot": "/?okres=miesiac"})
+        self.assertEqual(len(self._klucze_alertow()), len(klucze) - 1)
+
+    def test_zarchiwizowany_alert_da_sie_przywrocic(self):
+        klucze = self._klucze_alertow()
+        self.c.post(f"/alert/{klucze[0]}/archiwizuj", data={"powrot": "/?okres=miesiac"})
+        self.assertIn("przywróć",
+                      self.c.get("/?okres=miesiac&archiwum=1").get_data(as_text=True))
+        self.c.post(f"/alert/{klucze[0]}/archiwizuj",
+                    data={"przywroc": "1", "powrot": "/?okres=miesiac"})
+        self.assertEqual(len(self._klucze_alertow()), len(klucze))
+
+    def test_archiwizacja_dotyczy_jednego_okresu(self):
+        """Schowany alert ma wrócić, gdy problem powtórzy się w kolejnym okresie."""
+        from analityk.store import Baza as B
+        baza = B(self.app.config["SCIEZKA_BAZY"])
+        alert = [{"kod": "norma", "tresc": "Realizacja normy 40%."}]
+        klucz = baza.zarejestruj_alerty("a", "miesiac", "2026-08", alert)[0]["klucz"]
+        baza.archiwizuj_alert(klucz)
+
+        sierpien = baza.zarejestruj_alerty("a", "miesiac", "2026-08", alert)[0]
+        wrzesien = baza.zarejestruj_alerty("a", "miesiac", "2026-09", alert)[0]
+        inna_osoba = baza.zarejestruj_alerty("b", "miesiac", "2026-08", alert)[0]
+        baza.zamknij()
+
+        self.assertTrue(sierpien["zarchiwizowany"])
+        self.assertFalse(wrzesien["zarchiwizowany"])
+        self.assertFalse(inna_osoba["zarchiwizowany"])
+
+    def test_data_alertu_sie_nie_odswieza(self):
+        """Alert wiszący od tygodnia nie może wyglądać na dzisiejszy."""
+        from analityk.store import Baza as B
+        klucz = self._klucze_alertow()[0]
+        import urllib.parse
+        baza = B(self.app.config["SCIEZKA_BAZY"])
+        baza.con.execute(
+            "UPDATE alerty_stan SET pierwszy_raz = '2026-01-05T08:00:00' WHERE klucz = ?",
+            (urllib.parse.unquote(klucz),),
+        )
+        baza.con.commit()
+        baza.zamknij()
+        self.assertIn("05.01.2026", self.c.get("/?okres=miesiac").get_data(as_text=True))
+
     def test_tematy_pokazuja_pojedyncze_notatki(self):
         tresc = self.c.get("/tematy?okres=miesiac").get_data(as_text=True)
         self.assertIn("Akceptuj", tresc)

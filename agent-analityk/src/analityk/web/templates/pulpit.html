@@ -147,15 +147,33 @@
   </div>
 {% endif %}
 
-{% if ostrzezenia %}
+{% if ostrzezenia or zarchiwizowane %}
   <div class="karta">
     <h2>Alerty ({{ ostrzezenia|length }})</h2>
-    {% for p, tresc in ostrzezenia %}
-      <div class="alert">
-        <strong><a href="{{ url_for('widok_pracownika', klucz=p.klucz) }}{{ mk.q(okres) }}">{{ p.imie_nazwisko }}</a></strong>
-        <span>{{ tresc }}</span>
-      </div>
+    {% for p, a in ostrzezenia %}
+      {{ mk.alert_do_archiwum(p.imie_nazwisko, a) }}
+    {% else %}
+      <p class="pusto">Wszystkie alerty z tego okresu są zarchiwizowane.</p>
     {% endfor %}
+    <p class="notatka" style="margin-top:12px">
+      Kliknięcie w alert chowa go do archiwum — wróci sam, jeśli problem
+      powtórzy się w następnym okresie.
+      {% if zarchiwizowane %}
+        {% if pokaz_archiwum %}
+          <a href="{{ url_for('pulpit', okres=okres.typ, klucz=okres.klucz) }}">ukryj archiwum</a>
+        {% else %}
+          <a href="{{ url_for('pulpit', okres=okres.typ, klucz=okres.klucz, archiwum=1) }}">
+            pokaż zarchiwizowane ({{ zarchiwizowane|length }})</a>
+        {% endif %}
+      {% endif %}
+    </p>
+
+    {% if pokaz_archiwum and zarchiwizowane %}
+      <h3>Zarchiwizowane</h3>
+      {% for p, a in zarchiwizowane %}
+        {{ mk.alert_do_archiwum(p.imie_nazwisko, a, przywroc=true) }}
+      {% endfor %}
+    {% endif %}
   </div>
 {% endif %}
 

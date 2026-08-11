@@ -86,12 +86,33 @@ NAZWY_OKRESOW = {
 DOMYSLNY_LIMIT_NOTATEK = 50
 
 
+def _data_pl(iso: str) -> str:
+    """'2026-08-11T09:12:00' -> '11.08.2026'."""
+    if not iso:
+        return ""
+    try:
+        return date.fromisoformat(iso[:10]).strftime("%d.%m.%Y")
+    except ValueError:
+        return iso
+
+
+def _wiek_dni(iso: str) -> int:
+    if not iso:
+        return 0
+    try:
+        return (date.today() - date.fromisoformat(iso[:10])).days
+    except ValueError:
+        return 0
+
+
 def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
     app = Flask(__name__)
     app.secret_key = secrets.token_hex(16)
     app.config["SCIEZKA_BAZY"] = sciezka_bazy
     app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
     app.jinja_env.filters["etykieta"] = opis_etykiety
+    app.jinja_env.filters["data_pl"] = _data_pl
+    app.jinja_env.filters["wiek_dni"] = _wiek_dni
 
     def baza() -> Baza:
         """Jedno połączenie na żądanie, zamykane w `teardown`.
@@ -173,9 +194,15 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
         lacznie = podsumowanie(wszystkie_akt, o["typ"], suma_norm(wszyscy),
                                zakres=(o["od"], o["do"]))
 
-        ostrzezenia = [
-            (dane_prac[k], a) for k, m in per_prac.items() for a in alerty(m)
-        ]
+        # alerty dostają datę pierwszego pojawienia się; zarchiwizowane
+        # chowamy, ale nadal da się je wywołać z tej samej strony
+        pokaz_archiwum = request.args.get("archiwum") == "1"
+        ostrzezenia, zarchiwizowane = [], []
+        for k, m in per_prac.items():
+            for a in b.zarejestruj_alerty(k, o["typ"], o["klucz"], alerty(m)):
+                (zarchiwizowane if a["zarchiwizowany"] else ostrzezenia).append(
+                    (dane_prac[k], a)
+                )
         return render_template(
             "pulpit.html",
             lacznie=lacznie,
@@ -184,6 +211,8 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
                      for k, ind, _ in ranking_zespolu(per_prac)],
             bez_wynikow=[p for p in wszyscy if per_prac[p.klucz].get("pusty")],
             ostrzezenia=ostrzezenia,
+            zarchiwizowane=zarchiwizowane,
+            pokaz_archiwum=pokaz_archiwum,
             nieprzypisani=b.nieprzypisani(),
             wykres_dni=charts.slupki(_szereg_dzienny(wszystkie_akt, o)),
         )
@@ -254,13 +283,16 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
             trend=porownaj(m, m_poprz) if not (m.get("pusty") or m_poprz.get("pusty")) else {},
             grupy=grupy,
             pasek=charts.pasek_pozycji,
-            alerty=alerty(m, m_poprz),
+            alerty=[a for a in b.zarejestruj_alerty(
+                klucz, o["typ"], o["klucz"], alerty(m, m_poprz))
+                if not a["zarchiwizowany"]],
             pamiec=b.pamiec(klucz, limit=12),
             zadania=b.zadania(pracownik=klucz, status="otwarte"),
             nazwy_zadan=NAZWY_ZADAN,
             leady=[a for a in akt if a.wynik in (WYNIK_LEAD, WYNIK_SYGNAL)],
             rynek=[a for a in akt if a.wynik == WYNIK_INFO_RYNKOWE],
             ocena=(zapisany or {}).get("ocena"),
+            zakladki=_zakladki(b, klucz, o),
             wskaznik=charts.wskaznik(m.get("indeks_jakosci", 0), etykieta="indeks jakości"),
             wykres_godzin=charts.slupki(
                 [(f"{g}", n) for g, n in (m.get("rozklad_godzinowy") or {}).items()]
@@ -341,6 +373,59 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
         flash("Ocena AI gotowa. Przejrzyj ją, zanim przekażesz pracownikowi.", "ok")
         return redirect(_powrot(url_for("widok_pracownika", klucz=klucz)))
 
+    def _zakladki(b: Baza, klucz: str, o: dict) -> dict:
+        """Liczniki przy zakładkach karty pracownika.
+
+        Zadania celowo idą bez filtra okresu — follow-up sprzed dwóch tygodni
+        nadal jest do zrobienia, choćby ekran pokazywał bieżący tydzień.
+        """
+        akt = b.pobierz(pracownik=klucz, od=o["od"], do=o["do"])
+        oceny = b.oceny_notatek()
+        return {
+            "zadania": len(b.zadania(pracownik=klucz, status="otwarte")),
+            "tematy": sum(1 for ob in obserwacje(akt)
+                          if oceny.get(ob["aktywnosc"].id, {}).get("status", "nowa") == "nowa"),
+        }
+
+    @app.route("/pracownik/<klucz>/zadania")
+    def zadania_pracownika(klucz: str):
+        b = baza()
+        o = kontekst_okresu()
+        p = b.pracownik_lub_domyslny(klucz)
+        status = request.args.get("status") or "otwarte"
+        lista = b.zadania(pracownik=klucz, status=status)
+        return render_template(
+            "pracownik_zadania.html",
+            p=p, koszyki=_koszyki_zadan(lista), razem=len(lista), status=status,
+            nazwy_zadan=NAZWY_ZADAN, zakladki=_zakladki(b, klucz, o),
+        )
+
+    @app.route("/pracownik/<klucz>/tematy")
+    def tematy_pracownika(klucz: str):
+        b = baza()
+        o = kontekst_okresu()
+        p = b.pracownik_lub_domyslny(klucz)
+        status = request.args.get("status") or "nowa"
+        akt = b.pobierz(pracownik=klucz, od=o["od"], do=o["do"])
+        oceny = b.oceny_notatek()
+
+        wszystkie = obserwacje(akt)
+        for ob in wszystkie:
+            ocena = oceny.get(ob["aktywnosc"].id, {})
+            ob["status"] = ocena.get("status", "nowa")
+            ob["komentarz"] = ocena.get("komentarz", "")
+        liczniki = {"wszystkie": len(wszystkie)}
+        for nazwa in ("nowa", "zaakceptowana", "odrzucona"):
+            liczniki[nazwa] = sum(1 for ob in wszystkie if ob["status"] == nazwa)
+
+        lista = (wszystkie if status == "wszystkie"
+                 else [ob for ob in wszystkie if ob["status"] == status])
+        return render_template(
+            "pracownik_tematy.html",
+            p=p, lista=lista, liczniki=liczniki, wybrany_status=status,
+            zakladki=_zakladki(b, klucz, o),
+        )
+
     @app.route("/pracownik/<klucz>/raport.md")
     def raport_md(klucz: str):
         b = baza()
@@ -367,24 +452,7 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
         strona = request.args.get("strona") or None
         status = request.args.get("status") or "otwarte"
         lista = b.zadania(pracownik=pracownik, status=status, strona=strona)
-        dzis = date.today()
-
-        def koszyk(z):
-            if not z.termin:
-                return "bez_terminu"
-            termin = date.fromisoformat(z.termin)
-            if termin < dzis:
-                return "po_terminie"
-            if termin == dzis:
-                return "dzis"
-            if (termin - dzis).days <= 7:
-                return "ten_tydzien"
-            return "pozniej"
-
-        koszyki = {k: [] for k in
-                   ("po_terminie", "dzis", "ten_tydzien", "pozniej", "bez_terminu")}
-        for z in lista:
-            koszyki[koszyk(z)].append(z)
+        koszyki = _koszyki_zadan(lista)
 
         return render_template(
             "zadania.html",
@@ -583,6 +651,14 @@ def stworz_aplikacje(sciezka_bazy: str = "data/analityk.db") -> Flask:
             flash(f"Zapisano: „{wzorzec}”{opis} → {kod}.", "ok")
         return redirect(url_for("widok_typow"))
 
+    @app.post("/alert/<path:klucz>/archiwizuj")
+    def archiwizuj_alert(klucz: str):
+        b = baza()
+        do_archiwum = request.form.get("przywroc") != "1"
+        b.archiwizuj_alert(klucz, do_archiwum)
+        flash("Alert zarchiwizowany." if do_archiwum else "Alert przywrócony.", "ok")
+        return redirect(request.form.get("powrot") or url_for("pulpit"))
+
     # --- organizacja ------------------------------------------------------
 
     @app.route("/organizacja")
@@ -732,6 +808,30 @@ def _powrot(domyslny: str) -> str:
     if okres and klucz:
         return f"{domyslny}?okres={okres}&klucz={klucz}"
     return domyslny
+
+
+def _koszyki_zadan(lista) -> dict[str, list]:
+    """Zadania w koszykach terminowych — od przeterminowanych po bezterminowe."""
+    dzis = date.today()
+
+    def koszyk(z):
+        if not z.termin:
+            return "bez_terminu"
+        termin = date.fromisoformat(z.termin)
+        if termin < dzis:
+            return "po_terminie"
+        if termin == dzis:
+            return "dzis"
+        if (termin - dzis).days <= 7:
+            return "ten_tydzien"
+        return "pozniej"
+
+    koszyki: dict[str, list] = {k: [] for k in
+                                ("po_terminie", "dzis", "ten_tydzien",
+                                 "pozniej", "bez_terminu")}
+    for z in lista:
+        koszyki[koszyk(z)].append(z)
+    return koszyki
 
 
 def _szereg_dzienny(aktywnosci, o: dict) -> list[tuple[str, int]]:

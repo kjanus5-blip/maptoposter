@@ -195,7 +195,7 @@ def cmd_zespol(args) -> int:
     for p in baza.pracownicy():
         _, m = _metryki_okresu(baza, p, args.okres, klucz)
         for a in alerty(m):
-            print(f"- **{p.imie_nazwisko}**: {a}")
+            print(f"- **{p.imie_nazwisko}**: {a['tresc']}")
     return 0
 
 

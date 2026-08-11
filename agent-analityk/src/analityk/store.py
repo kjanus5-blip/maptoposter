@@ -97,6 +97,21 @@ CREATE TABLE IF NOT EXISTS notatki_ocena (
 );
 CREATE INDEX IF NOT EXISTS idx_notatki_status ON notatki_ocena(status);
 
+-- Alerty liczą się na nowo przy każdym wejściu na pulpit, więc same z siebie
+-- nie mają ani historii, ani pamięci o tym, że ktoś je już widział. Ta tabela
+-- daje im jedno i drugie: datę pierwszego pojawienia się i znacznik archiwum.
+CREATE TABLE IF NOT EXISTS alerty_stan (
+    klucz TEXT PRIMARY KEY,           -- pracownik|kod|typ_okresu|klucz_okresu
+    pracownik TEXT NOT NULL,
+    kod TEXT NOT NULL,
+    typ_okresu TEXT NOT NULL,
+    okres TEXT NOT NULL,
+    tresc TEXT NOT NULL DEFAULT '',
+    pierwszy_raz TEXT NOT NULL,
+    zarchiwizowano TEXT DEFAULT ''    -- pusty = alert nadal aktywny
+);
+CREATE INDEX IF NOT EXISTS idx_alerty_okres ON alerty_stan(typ_okresu, okres);
+
 CREATE TABLE IF NOT EXISTS mapowanie_typow (
     wzorzec TEXT PRIMARY KEY,      -- fragment z kolumny Typ/Mobilny, małymi literami
     kod TEXT NOT NULL,             -- kod wskaźnika z punktacji
@@ -396,6 +411,58 @@ class Baza:
                  datetime.now().isoformat(timespec="seconds")),
             )
         self.con.commit()
+
+    # --- stan alertów -----------------------------------------------------
+
+    @staticmethod
+    def klucz_alertu(pracownik: str, kod: str, typ_okresu: str, okres: str) -> str:
+        return "|".join((pracownik, kod, typ_okresu, okres))
+
+    def zarejestruj_alerty(self, pracownik: str, typ_okresu: str, okres: str,
+                           alerty: list[dict]) -> list[dict]:
+        """Dokleja do alertów datę pierwszego pojawienia się i stan archiwum.
+
+        Alert wyliczony dziś i alert wyliczony jutro to ten sam problem, więc
+        data bierze się z pierwszego zapisu i już się nie zmienia — inaczej
+        każdy alert wyglądałby na świeży, także ten wiszący od trzech tygodni.
+        """
+        teraz = datetime.now().isoformat(timespec="seconds")
+        wynik = []
+        for a in alerty:
+            klucz = self.klucz_alertu(pracownik, a["kod"], typ_okresu, okres)
+            self.con.execute(
+                """INSERT INTO alerty_stan
+                       (klucz, pracownik, kod, typ_okresu, okres, tresc, pierwszy_raz)
+                   VALUES (?,?,?,?,?,?,?)
+                   ON CONFLICT(klucz) DO UPDATE SET tresc=excluded.tresc""",
+                (klucz, pracownik, a["kod"], typ_okresu, okres, a["tresc"], teraz),
+            )
+            wiersz = self.con.execute(
+                "SELECT pierwszy_raz, zarchiwizowano FROM alerty_stan WHERE klucz = ?",
+                (klucz,),
+            ).fetchone()
+            wynik.append({**a, "klucz": klucz,
+                          "pierwszy_raz": wiersz["pierwszy_raz"],
+                          "zarchiwizowany": bool(wiersz["zarchiwizowano"])})
+        self.con.commit()
+        return wynik
+
+    def archiwizuj_alert(self, klucz: str, archiwum: bool = True) -> None:
+        self.con.execute(
+            "UPDATE alerty_stan SET zarchiwizowano = ? WHERE klucz = ?",
+            (datetime.now().isoformat(timespec="seconds") if archiwum else "", klucz),
+        )
+        self.con.commit()
+
+    def zarchiwizowane_alerty(self, typ_okresu: str | None = None,
+                              okres: str | None = None) -> list[dict]:
+        sql = "SELECT * FROM alerty_stan WHERE zarchiwizowano != ''"
+        params: list = []
+        if typ_okresu and okres:
+            sql += " AND typ_okresu = ? AND okres = ?"
+            params += [typ_okresu, okres]
+        sql += " ORDER BY zarchiwizowano DESC"
+        return [dict(r) for r in self.con.execute(sql, params)]
 
     def aktywnosci_po_id(self, identyfikatory: list[str]) -> dict[str, Activity]:
         if not identyfikatory:

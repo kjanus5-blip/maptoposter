@@ -199,7 +199,8 @@ def zbuduj_raport(
     # --- 7. Alerty ---
     ostrzezenia = alerty(m, m_poprzedni)
     if ostrzezenia:
-        czesci.append("## 7. Alerty\n\n" + "\n".join(f"- ⚠️ {o}" for o in ostrzezenia))
+        czesci.append("## 7. Alerty\n\n"
+                      + "\n".join(f"- ⚠️ {o['tresc']}" for o in ostrzezenia))
 
     # --- 8. Ocena ---
     if ocena_llm:
