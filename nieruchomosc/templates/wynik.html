@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block tytul %}Wynik: {{ osoba }}{% endblock %}
+{% block tresc %}
+
+<div class="naglowek-wyniku">
+  <div>
+    <h1>{{ osoba }}</h1>
+    {% if f.adres %}<p class="lead">{{ f.adres }}</p>{% endif %}
+  </div>
+  <a href="/" class="wtorny">← Nowe wyszukiwanie</a>
+</div>
+
+<section class="krok">
+  <div class="krok-numer">1</div>
+  <div class="krok-tresc">
+    <h2>Rejestr Spadkowy — zacznij tutaj</h2>
+    <p>To jedyne źródło, które <strong>rozstrzyga</strong>, czy było postępowanie spadkowe
+    i gdzie leżą akta. Bezpłatne. Reszta tej strony to poszlaki.</p>
+
+    {% if gotowy %}
+      <div class="alert ok">Masz komplet danych, których wymaga formularz. Możesz go wypełnić teraz.</div>
+    {% else %}
+      <div class="alert uwaga">Brakuje danych: {{ braki|join(', ') }}. Rejestr przyjmuje
+      <strong>PESEL</strong> albo <strong>imiona rodziców + datę urodzenia lub zgonu</strong> —
+      wszystkie te pola są w Dziale II księgi wieczystej.</div>
+    {% endif %}
+
+    <table class="dane">
+      <tbody>
+      {% for p in pola %}
+        <tr class="{{ 'jest' if p.wartosc else 'brak' }}">
+          <th>{{ p.etykieta }}</th>
+          <td>{{ p.wartosc or '—' }}</td>
+          <td class="zrodlo">{{ p.zrodlo }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+    <a class="glowny link" href="https://rejestry-notarialne.pl/37" target="_blank" rel="noopener">
+      Otwórz Rejestr Spadkowy →</a>
+  </div>
+</section>
+
+<section class="krok">
+  <div class="krok-numer">2</div>
+  <div class="krok-tresc">
+    <h2>Sprawdzone automatycznie</h2>
+    {% if auto %}
+      {% for a in auto %}
+      <article class="zrodlo-karta {{ a.status }}">
+        <header>
+          <span class="znacznik">{{ '✓' if a.status == 'ok' else '–' }}</span>
+          <h3>{{ a.nazwa }}</h3>
+        </header>
+        <p class="podsumowanie">{{ a.podsumowanie }}</p>
+        {% if a.linki %}
+        <ul class="trafienia">
+          {% for l in a.linki %}
+          <li><a href="{{ l.url }}" target="_blank" rel="noopener">{{ l.imie_nazwisko }}</a>
+            {% if l.daty %}<span class="daty">{{ l.daty }}</span>{% endif %}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% if a.szczegoly %}
+        <ul class="szczegoly">{% for s in a.szczegoly %}<li>{{ s }}</li>{% endfor %}</ul>
+        {% endif %}
+      </article>
+      {% endfor %}
+    {% else %}
+      <p class="podpowiedz">Nie podano danych do sprawdzenia.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="krok">
+  <div class="krok-numer">3</div>
+  <div class="krok-tresc">
+    <h2>Wymaga jednego kliknięcia</h2>
+    <p>Te serwisy są celowo zabezpieczone przed automatami — CAPTCHA albo zgoda RODO,
+    którą ma zaakceptować człowiek. Program ich nie obchodzi. Dane do wpisania masz wyżej.</p>
+    <div class="bramki">
+      {% for b in bramkowane %}
+      <a class="bramka waga-{{ b.waga }}" href="{{ b.url }}" target="_blank" rel="noopener">
+        <span class="etykieta">{{ b.waga }}</span>
+        <h3>{{ b.nazwa }}</h3>
+        <p>{{ b.dlaczego }}</p>
+        <span class="bramka-typ">bramka: {{ b.bramka }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="krok">
+  <div class="krok-numer">4</div>
+  <div class="krok-tresc">
+    <h2>Pisma do wysłania</h2>
+    <p>Uzupełnij dane nadawcy — program wygeneruje cztery gotowe pisma w jednym pliku ZIP.
+    Najskuteczniejsze jest pierwsze: prośba do zarządcy o <strong>przekazanie</strong> Twojej
+    korespondencji, która nie wymaga wykazywania interesu prawnego.</p>
+    <form method="post" action="/pisma" class="pisma-form">
+      <input type="hidden" name="adres" value="{{ f.adres }}">
+      <input type="hidden" name="dzialka" value="{{ dzialka.get('id','') }}">
+      <input type="hidden" name="obreb" value="{{ dzialka.get('region','') }}">
+      <input type="hidden" name="gmina" value="{{ dzialka.get('commune','') }}">
+      <input type="hidden" name="powiat" value="{{ dzialka.get('county','') }}">
+      <input type="hidden" name="wojewodztwo" value="{{ dzialka.get('voivodeship','') }}">
+      <div class="siatka2">
+        <div><label for="wnioskodawca">Twoje imię i nazwisko</label>
+          <input type="text" id="wnioskodawca" name="wnioskodawca"></div>
+        <div><label for="kontakt">Kontakt zwrotny</label>
+          <input type="text" id="kontakt" name="kontakt" placeholder="adres, e-mail, telefon"></div>
+        <div><label for="cel">Cel kontaktu</label>
+          <input type="text" id="cel" name="cel" value="nabycia nieruchomości"></div>
+        <div><label for="interes_prawny">Interes prawny <span class="opc">do wniosków urzędowych</span></label>
+          <input type="text" id="interes_prawny" name="interes_prawny"></div>
+      </div>
+      <p class="podpowiedz uwaga">Sam zamiar zakupu co do zasady <strong>nie</strong> stanowi
+      interesu prawnego w rozumieniu art. 24 ust. 5 Prawa geodezyjnego. Jeśli go nie masz,
+      wyślij tylko pismo do zarządcy — ono go nie wymaga.</p>
+      <button type="submit" class="glowny">Pobierz pisma (ZIP)</button>
+    </form>
+  </div>
+</section>
+
+<section class="stopka-uwaga">
+  <h3>Zanim wyciągniesz wnioski</h3>
+  <p>Baza ZCK obejmuje sześć wrocławskich cmentarzy komunalnych, ale <strong>nie obejmuje
+  parafialnych</strong>. Brak trafienia nie dowodzi więc, że właściciel żyje — to słaba
+  przesłanka negatywna. Rozstrzyga Rejestr Spadkowy i akt stanu cywilnego, nie wyszukiwarka grobów.</p>
+</section>
+{% endblock %}

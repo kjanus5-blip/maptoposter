@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block tresc %}
+<div class="hero">
+  <h1>Kto jest właścicielem i jak się z nim skontaktować</h1>
+  <p class="lead">Wpisz to, co już wiesz. Każde pole jest opcjonalne — program wykorzysta tyle,
+  ile mu dasz, i powie, czego jeszcze brakuje.</p>
+</div>
+
+<form method="post" action="/szukaj" class="karta">
+  <fieldset>
+    <legend>Nieruchomość</legend>
+    <label for="adres">Adres</label>
+    <input type="text" id="adres" name="adres" placeholder="ul. Legnicka 45/12, Wrocław" autofocus>
+    <p class="podpowiedz">Ustali działkę ewidencyjną przez ULDK — to dane potrzebne do wniosków urzędowych.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Właściciel z Działu II księgi wieczystej</legend>
+    <div class="siatka2">
+      <div><label for="imie">Imię</label><input type="text" id="imie" name="imie"></div>
+      <div><label for="nazwisko">Nazwisko</label><input type="text" id="nazwisko" name="nazwisko"></div>
+      <div><label for="ojciec">Imię ojca</label><input type="text" id="ojciec" name="ojciec" placeholder="pole 2.2.5.6"></div>
+      <div><label for="matka">Imię matki</label><input type="text" id="matka" name="matka" placeholder="pole 2.2.5.7"></div>
+      <div><label for="rok_urodzenia">Rok urodzenia</label><input type="text" id="rok_urodzenia" name="rok_urodzenia" inputmode="numeric" placeholder="np. 1938"></div>
+      <div><label for="rok_zgonu">Rok zgonu <span class="opc">jeśli znany</span></label><input type="text" id="rok_zgonu" name="rok_zgonu" inputmode="numeric"></div>
+    </div>
+
+    <label class="checkbox">
+      <input type="checkbox" name="ma_pesel" value="1">
+      <span>Księga wieczysta ujawnia PESEL <em>(pole 2.2.5.8)</em></span>
+    </label>
+    <p class="podpowiedz uwaga">Nie wpisuj tu numeru PESEL — zaznacz tylko, że go masz.
+    Wpiszesz go bezpośrednio w formularz Rejestru Spadkowego, dzięki czemu nie trafi
+    do żadnego pliku na dysku.</p>
+  </fieldset>
+
+  <button type="submit" class="glowny">Sprawdź</button>
+  <p class="podpowiedz srodek">Zapytania idą do Nominatim, ULDK, nekrologi.net i CEIDG.
+  Zajmuje to kilka sekund.</p>
+</form>
+{% endblock %}

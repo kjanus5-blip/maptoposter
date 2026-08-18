@@ -161,3 +161,48 @@ def biala_lista_nip(nip: str) -> dict:
     if not podmiot:
         return {"status": "brak", "opis": f"Biała lista: brak podmiotu o NIP {nip}"}
     return {"status": "ok", "dane": podmiot}
+
+
+# --- Nekrologi -------------------------------------------------------------
+# Najcenniejsze niebramkowane źródło informacji o świeżym zgonie. Nekrolog
+# zwykle wylicza z imienia dzieci i wnuki, czyli gotowy krąg spadkobierców.
+
+def nekrologi_szukaj(imie: str, nazwisko: str, limit: int = 15) -> dict:
+    """Wyszukanie nekrologów w nekrologi.net (bez bramki, wyniki renderowane serwerowo)."""
+    import re
+
+    fraza = " ".join(x for x in (imie, nazwisko) if x).strip()
+    if not fraza:
+        return {"status": "brak", "opis": "nie podano imienia ani nazwiska"}
+
+    try:
+        r = _get("https://www.nekrologi.net/znajdz-nekrologi", params={"query": fraza})
+        r.raise_for_status()
+    except requests.RequestException as e:
+        return {"status": "blad", "opis": f"nekrologi.net: {e}"}
+
+    tresc = r.text
+    trafienia, widziane = [], set()
+    for m in re.finditer(
+        r'href="(/pamiec/(\d+)/[^"]*)"[^>]*>(.*?)</a>', tresc, re.DOTALL
+    ):
+        sciezka, ident, wnetrze = m.group(1), m.group(2), m.group(3)
+        if ident in widziane:
+            continue
+        widziane.add(ident)
+
+        tytul = re.search(r'class="card-title[^"]*"[^>]*>([^<]+)<', wnetrze)
+        nazwa = tytul.group(1).strip() if tytul else sciezka.rsplit("/", 1)[-1].replace("-", " ").title()
+        daty = re.findall(r"\b(\d{1,2}[.-]\d{1,2}[.-]\d{4}|\b\d{4})\b", re.sub(r"<[^>]+>", " ", wnetrze))
+
+        trafienia.append({
+            "imie_nazwisko": nazwa,
+            "daty": " – ".join(dict.fromkeys(daty))[:40],
+            "url": "https://www.nekrologi.net" + sciezka,
+        })
+        if len(trafienia) >= limit:
+            break
+
+    if not trafienia:
+        return {"status": "brak", "opis": f"nekrologi.net: brak trafień dla „{fraza}”"}
+    return {"status": "ok", "dane": trafienia}

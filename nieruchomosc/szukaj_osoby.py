@@ -36,9 +36,14 @@ BAZY_KRAJOWE = {
 }
 
 NEKROLOGI = {
-    "Nekrologi Wyborczej": "https://nekrologi.wyborcza.pl/szukaj?q={imie}+{nazwisko}",
-    "Nekrologi.net": "https://www.nekrologi.net/szukaj?q={imie}+{nazwisko}",
+    "Nekrologi.net": "https://www.nekrologi.net/znajdz-nekrologi?query={imie}+{nazwisko}",
+    "Nekrologi Wyborczej": "https://nekrologi.wyborcza.pl/0,0.html?query={imie}+{nazwisko}",
 }
+
+# Wyszukiwarka grobów Zarządu Cmentarzy Komunalnych we Wrocławiu.
+# Obejmuje 6 cmentarzy komunalnych (ok. 253 tys. rekordów). NIE obejmuje
+# cmentarzy parafialnych, więc brak trafienia nie dowodzi, że osoba żyje.
+ZCK_WROCLAW = "https://groby.cui.wroclaw.pl/"
 
 REJESTRY = {
     "Rejestr Spadkowy (formularz z CAPTCHA - ręcznie)": "https://rejestry-notarialne.pl/37",

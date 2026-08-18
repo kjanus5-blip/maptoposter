@@ -83,7 +83,45 @@ Legalne kanały kontaktu to: adres z Działu II KW (list polecony za potwierdzen
 odbioru — jedyny kanał z mocą dowodową), dane kontaktowe z CEIDG podane
 dobrowolnie przez samego przedsiębiorcę, oraz pośrednictwo zarządcy nieruchomości.
 
-## Użycie
+## Aplikacja z interfejsem (zalecane)
+
+```bash
+pip install -r requirements.txt
+python3 app.py
+```
+
+Otwórz **http://127.0.0.1:5000**. Aplikacja działa wyłącznie na Twoim komputerze —
+jedyny ruch na zewnątrz to zapytania do rejestrów publicznych, które i tak
+wykonałbyś ręcznie.
+
+Interfejs prowadzi przez cztery kroki:
+
+1. **Rejestr Spadkowy** — checklista danych z Działu II i informacja, czy masz już
+   komplet wymagany przez formularz;
+2. **Sprawdzone automatycznie** — działka z ULDK, nekrologi, CEIDG;
+3. **Wymaga jednego kliknięcia** — źródła bramkowane CAPTCHĄ lub zgodą RODO,
+   uszeregowane według wagi;
+4. **Pisma** — cztery gotowe dokumenty do pobrania jako ZIP.
+
+## Warstwy automatyzacji
+
+| Warstwa | Źródła | Kto działa |
+|---|---|---|
+| pełna automatyzacja | Nominatim, ULDK, nekrologi.net, CEIDG, KRS, Biała Lista VAT | program |
+| jedno kliknięcie | Rejestr Spadkowy, groby ZCK Wrocław, MSiG, NORT | Ty, program przygotowuje dane |
+| nigdy | EKW (zakaz w regulaminie), CAPTCHA | — |
+
+Bramki przy Rejestrze Spadkowym i wyszukiwarce grobów ZCK to reCAPTCHA i oświadczenie
+RODO. Są tam po to, żeby zapytanie złożył człowiek — program ich nie obchodzi, bo
+byłoby to wbrew warunkom tych serwisów i psułoby się przy pierwszej zmianie zabezpieczenia.
+
+## Ograniczenie, o którym trzeba pamiętać
+
+Baza grobów ZCK obejmuje sześć wrocławskich cmentarzy komunalnych (ok. 253 tys.
+rekordów), ale **nie obejmuje cmentarzy parafialnych**. Brak trafienia nie dowodzi,
+że właściciel żyje. Rozstrzyga Rejestr Spadkowy i akt stanu cywilnego.
+
+## Użycie z wiersza poleceń
 
 ```bash
 pip install requests
