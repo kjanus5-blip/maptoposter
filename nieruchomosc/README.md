@@ -13,6 +13,7 @@ przepisami o dostępie do rejestrów.
 | nazwisko → działalność gospodarcza | CEIDG API v3 | `CEIDG_TOKEN` (darmowy) |
 | NIP → dane podmiotu | Biała Lista VAT (MF) | nie |
 | numer KRS → odpis aktualny | API Ministerstwa Sprawiedliwości | nie |
+| gmina → lokalna wyszukiwarka grobów | wykrywanie instancji Grobonetu | nie |
 
 Na końcu generuje `raport.md` ze ścieżką postępowania oraz cztery gotowe
 do uzupełnienia pisma.
@@ -36,6 +37,51 @@ księgi wieczyste są jawne (art. 2 ustawy o księgach wieczystych i hipotece).
 
 Najszybsza droga do numeru KW to zwykle zarządca budynku lub spółdzielnia,
 nie urząd.
+
+## Dwa scenariusze
+
+### A. Nie znasz właściciela — `ustal_wlasciciela.py`
+Punkt wyjścia: sam adres. Ustala działkę ewidencyjną i prowadzi do numeru KW.
+
+### B. Znasz nazwisko z Działu II, ale nie wiesz, czy osoba żyje — `szukaj_osoby.py`
+Punkt wyjścia: imię i nazwisko właściciela z księgi wieczystej.
+
+```bash
+python szukaj_osoby.py \
+    --imie Jan --nazwisko Kowalski \
+    --ojciec Stanisław --matka Anna \
+    --ma-pesel --rok-urodzenia 1938 \
+    --gmina "Gliwice" \
+    --wyjscie wynik
+```
+
+Generuje `osoba_<nazwisko>.md` z:
+
+- **kontrolą kompletności danych do Rejestru Spadkowego** — rejestr przyjmuje PESEL
+  albo imię + nazwisko + imiona rodziców + datę urodzenia lub zgonu, a Dział II KW
+  podaje dokładnie te dane w polach 2.2.5.6, 2.2.5.7 i 2.2.5.8;
+- **wykryciem lokalnej wyszukiwarki grobów** — Grobonet działa osobno dla każdej
+  gminy (`<gmina>.grobonet.com`), bez wspólnego indeksu, więc skrypt sprawdza,
+  czy instancja dla Twojej gminy istnieje;
+- gotowymi linkami do baz krajowych (eCmentarze, Mogily), nekrologów, Monitora
+  Sądowego i Gospodarczego, Geneteki, KRS i CEIDG;
+- interpretacją każdego z czterech możliwych wyników.
+
+`--ma-pesel` jest flagą, nie wartością — skrypt celowo nie przyjmuje numeru PESEL
+jako argumentu, żeby nie zapisywać go w plikach ani w historii powłoki. PESEL
+wpisuje się bezpośrednio w formularz Rejestru Spadkowego.
+
+## Czego narzędzie nie wyszuka
+
+Numerów telefonów, adresów e-mail ani „alternatywnych adresów" osób prywatnych.
+W Polsce nie ma dla nich legalnego źródła publicznego — książki telefoniczne
+zniknęły wraz z RODO, a serwisy typu „znajdź osobę po nazwisku" opierają się na
+wyciekach danych albo na brokerach z szarej strefy. Przy transakcji nieruchomości
+kontakt zdobyty taką drogą podważa dobrą wiarę nabywcy.
+
+Legalne kanały kontaktu to: adres z Działu II KW (list polecony za potwierdzeniem
+odbioru — jedyny kanał z mocą dowodową), dane kontaktowe z CEIDG podane
+dobrowolnie przez samego przedsiębiorcę, oraz pośrednictwo zarządcy nieruchomości.
 
 ## Użycie
 
