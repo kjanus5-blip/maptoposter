@@ -1,0 +1,946 @@
+<title>Trójkąt D2D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style id="app-css">
+:root{
+  --ground:#f6f2ef; --surface:#fffdfc; --surface-2:#efe9e4; --ink:#241c18; --ink-2:#6d5f57;
+  --line:#e2d9d2; --line-2:#cdc0b7; --brand:#8c2f27; --brand-ink:#fff;
+  --st-todo:#fffdfc; --st-todo-line:#c3b5ab;
+  --st-done:#6d8a86; --st-away:#c08a2e; --st-refused:#a1928a; --st-locked:#5f6f8c;
+  --st-lead:#e0522f; --st-deal:#2f7a55;
+  --map-bg:#efeae5; --map-block:#e5ddd6; --map-road:#ffffff; --map-road-line:#dcd1c8;
+  --map-water:#c6d7dd; --map-green:#dde3d3; --map-rail:#bfb3aa; --map-other:#e0d7cf;
+  --shadow:0 1px 2px rgba(36,28,24,.08),0 8px 24px -12px rgba(36,28,24,.25);
+  --r:9px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#15120f; --surface:#1e1a16; --surface-2:#282218; --ink:#f2e9e2; --ink-2:#a5958a;
+    --line:#332b25; --line-2:#463b33; --brand:#e0705f; --brand-ink:#1b1512;
+    --st-todo:#262019; --st-todo-line:#584a40;
+    --st-done:#89a8a3; --st-away:#d9a445; --st-refused:#b0a199; --st-locked:#8496b8;
+    --st-lead:#f2673f; --st-deal:#43a778;
+    --map-bg:#151210; --map-block:#221d19; --map-road:#3a322b; --map-road-line:#4a4038;
+    --map-water:#25404a; --map-green:#232a20; --map-rail:#4d443c; --map-other:#2a241f;
+    --shadow:0 1px 2px rgba(0,0,0,.5),0 10px 28px -14px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#15120f; --surface:#1e1a16; --surface-2:#282218; --ink:#f2e9e2; --ink-2:#a5958a;
+  --line:#332b25; --line-2:#463b33; --brand:#e0705f; --brand-ink:#1b1512;
+  --st-todo:#262019; --st-todo-line:#584a40;
+  --st-done:#89a8a3; --st-away:#d9a445; --st-refused:#b0a199; --st-locked:#8496b8;
+  --st-lead:#f2673f; --st-deal:#43a778;
+  --map-bg:#151210; --map-block:#221d19; --map-road:#3a322b; --map-road-line:#4a4038;
+  --map-water:#25404a; --map-green:#232a20; --map-rail:#4d443c; --map-other:#2a241f;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 10px 28px -14px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; font-size:15px; line-height:1.45;
+  -webkit-text-size-adjust:100%;
+}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:none;padding:0}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:4px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.eyebrow{font-family:"Archivo Narrow","Arial Narrow",sans-serif;text-transform:uppercase;
+  letter-spacing:.09em;font-weight:600;font-size:11.5px;color:var(--ink-2)}
+
+/* ---------------------------------------------------------------- shell */
+#root{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+.topbar{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;padding:9px 14px;background:var(--surface);
+  border-bottom:1px solid var(--line);flex:none;z-index:5}
+.brandmark{display:flex;flex-direction:column;line-height:1.1;min-width:0}
+.brandmark b{font-family:"Archivo Narrow","Arial Narrow",sans-serif;font-size:19px;font-weight:700;
+  letter-spacing:.01em;white-space:nowrap}
+.brandmark span{font-size:11px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topstats{display:flex;gap:8px;margin-left:auto;align-items:center}
+.stat{background:var(--surface-2);border-radius:var(--r);padding:4px 10px 5px;text-align:right;min-width:64px}
+.stat b{display:block;font-family:"IBM Plex Mono",monospace;font-size:16px;font-weight:600;
+  font-variant-numeric:tabular-nums;line-height:1.2}
+.stat span{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-2)}
+.stat.lead b{color:var(--st-lead)} .stat.deal b{color:var(--st-deal)}
+.tbtn{border:1px solid var(--line-2);border-radius:var(--r);padding:7px 11px;font-size:13px;
+  font-weight:500;background:var(--surface);white-space:nowrap;transition:background .12s}
+.tbtn:hover{background:var(--surface-2)}
+.tbtn[disabled]{opacity:.45;cursor:default}
+.tbtn.primary{background:var(--brand);color:var(--brand-ink);border-color:transparent}
+.tbtn.dirty{box-shadow:0 0 0 2px color-mix(in srgb,var(--brand) 30%,transparent)}
+
+.main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 372px;min-height:0}
+.mapwrap{position:relative;background:var(--map-bg);min-height:0;min-width:0;overflow:hidden}
+svg#map{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+svg#map.dragging{cursor:grabbing}
+
+/* --------------------------------------------------------------- map ink */
+.blocks{fill:var(--map-block)}
+.green{fill:var(--map-green)}
+.water{fill:var(--map-water);stroke:var(--map-water);stroke-width:6;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.road{fill:none;stroke:var(--map-road);stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.road.casing{stroke:var(--map-road-line)}
+.rail{fill:none;stroke:var(--map-rail);stroke-width:1.4;stroke-dasharray:5 4;vector-effect:non-scaling-stroke}
+.other-b{fill:var(--map-other);stroke:var(--map-bg);stroke-width:.7;vector-effect:non-scaling-stroke}
+.seg-line{fill:none;stroke:var(--brand);stroke-opacity:.24;stroke-width:11;stroke-linecap:round;
+  vector-effect:non-scaling-stroke;transition:stroke-opacity .15s,stroke-width .15s}
+.seg-line.active{stroke-opacity:.55;stroke-width:15}
+.bld{stroke:var(--map-bg);stroke-width:1;vector-effect:non-scaling-stroke;cursor:pointer;
+  transition:filter .1s}
+.bld:hover{filter:brightness(1.12) saturate(1.15)}
+.bld.sel{stroke:var(--ink);stroke-width:2.4}
+.bld.dim{opacity:.22}
+.s-todo{fill:var(--st-todo);stroke:var(--st-todo-line);stroke-width:1.2}
+.s-done{fill:var(--st-done)} .s-away{fill:var(--st-away)} .s-refused{fill:var(--st-refused)}
+.s-locked{fill:var(--st-locked)} .s-lead{fill:var(--st-lead)} .s-deal{fill:var(--st-deal)}
+.numlab{font-family:"IBM Plex Mono",monospace;font-weight:500;text-anchor:middle;
+  dominant-baseline:central;pointer-events:none;fill:var(--ink)}
+.numlab.on{fill:#fff}
+:root[data-theme="dark"] .numlab.on{fill:#14100e}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .numlab.on{fill:#14100e}}
+.streetlab{font-family:"Archivo Narrow","Arial Narrow",sans-serif;font-weight:600;
+  text-transform:uppercase;letter-spacing:.12em;text-anchor:middle;pointer-events:none;
+  fill:var(--ink-2);stroke:var(--map-bg);stroke-width:.26em;stroke-linejoin:round;
+  paint-order:stroke fill}
+#labels.hide,#streetlabs.hide{display:none}
+
+.mapctl{position:absolute;left:12px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 24px)}
+.chipbtn{background:var(--surface);border:1px solid var(--line-2);border-radius:99px;
+  padding:5px 11px;font-size:12.5px;box-shadow:var(--shadow)}
+.chipbtn[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:transparent}
+.scalebar{position:absolute;right:12px;bottom:12px;font-size:10.5px;color:var(--ink-2);
+  background:color-mix(in srgb,var(--surface) 82%,transparent);padding:3px 7px;border-radius:5px;
+  display:flex;align-items:center;gap:6px}
+.scalebar i{display:block;height:5px;border:1px solid var(--ink-2);border-top:0}
+
+/* ------------------------------------------------------------- sidebar */
+.side{background:var(--surface);border-left:1px solid var(--line);display:flex;flex-direction:column;
+  min-height:0;min-width:0}
+.sidehead{padding:10px 14px 8px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.list{overflow-y:auto;flex:1;overscroll-behavior:contain;padding-bottom:28px}
+.street-h{position:sticky;top:0;background:var(--surface);padding:11px 14px 6px;z-index:2;
+  border-bottom:1px solid var(--line)}
+.street-h h2{margin:0;font-family:"Archivo Narrow","Arial Narrow",sans-serif;font-size:17px;
+  font-weight:700;letter-spacing:.01em;text-wrap:balance}
+.street-h .sub{font-size:11.5px;color:var(--ink-2)}
+.seg{border-bottom:1px solid var(--line);padding:9px 14px 12px}
+.seg.active{background:color-mix(in srgb,var(--brand) 7%,transparent)}
+.seg-top{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left}
+.seg-top .nm{font-size:13.5px;font-weight:500;flex:1;min-width:0}
+.seg-top .ct{font-size:11.5px;color:var(--ink-2)}
+.bar{height:4px;border-radius:3px;background:var(--surface-2);margin:7px 0 9px;overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+.side-row{display:flex;gap:10px;margin-top:6px}
+.side-col{flex:1;min-width:0}
+.side-col .eyebrow{margin-bottom:4px;display:block}
+.nums{display:flex;flex-wrap:wrap;gap:4px}
+.num{border:1px solid var(--st-todo-line);background:var(--st-todo);border-radius:6px;
+  min-width:34px;padding:4px 5px;font-family:"IBM Plex Mono",monospace;font-size:12.5px;
+  font-weight:500;text-align:center;position:relative;line-height:1.25}
+.num:hover{border-color:var(--ink-2)}
+.num.sel{outline:2px solid var(--ink);outline-offset:1px}
+.num.on{color:#fff;border-color:transparent}
+:root[data-theme="dark"] .num.on{color:#14100e}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .num.on{color:#14100e}}
+.num.has-note::after{content:"";position:absolute;top:2px;right:2px;width:4px;height:4px;
+  border-radius:50%;background:currentColor;opacity:.7}
+.b-done{background:var(--st-done)} .b-away{background:var(--st-away)}
+.b-refused{background:var(--st-refused)} .b-locked{background:var(--st-locked)}
+.b-lead{background:var(--st-lead)} .b-deal{background:var(--st-deal)}
+.empty{padding:26px 16px;color:var(--ink-2);font-size:13.5px;text-align:center}
+
+/* -------------------------------------------------------------- detail */
+.detail{position:absolute;left:0;right:0;bottom:0;max-height:100%;overflow-y:auto;
+  background:var(--surface);border-top:1px solid var(--line);box-shadow:var(--shadow);
+  padding:12px 14px 14px;display:flex;flex-direction:column;gap:10px;z-index:6}
+.detail[hidden]{display:none}
+.d-head{display:flex;align-items:flex-start;gap:10px}
+.d-head h3{margin:0;font-family:"Archivo Narrow","Arial Narrow",sans-serif;font-size:20px;
+  font-weight:700;line-height:1.15}
+.d-head .meta{font-size:11.5px;color:var(--ink-2)}
+.d-close{margin-left:auto;font-size:20px;line-height:1;color:var(--ink-2);padding:2px 6px}
+.stgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:6px}
+.stbtn{border:1px solid var(--line-2);border-radius:8px;padding:8px 6px;font-size:12.5px;min-width:0;
+  font-weight:500;display:flex;align-items:center;gap:6px;justify-content:center;background:var(--surface)}
+.stbtn .dot{width:10px;height:10px;border-radius:3px;border:1px solid var(--st-todo-line);flex:none}
+.stbtn[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+textarea{width:100%;min-height:60px;resize:vertical;border:1px solid var(--line-2);border-radius:8px;
+  padding:8px 9px;background:var(--ground);font-size:13.5px}
+.d-foot{display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--ink-2)}
+.d-nav{margin-left:auto;display:flex;gap:6px}
+
+.legend{display:flex;flex-wrap:wrap;gap:5px 12px;padding:9px 14px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--ink-2);background:var(--surface)}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend i{width:10px;height:10px;border-radius:3px;display:block;border:1px solid var(--st-todo-line)}
+
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);
+  color:var(--ground);padding:9px 16px;border-radius:99px;font-size:13px;box-shadow:var(--shadow);
+  z-index:50;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+
+dialog{border:none;border-radius:12px;padding:0;background:var(--surface);color:var(--ink);
+  max-width:min(560px,92vw);box-shadow:var(--shadow)}
+dialog::backdrop{background:rgba(20,14,10,.45)}
+.dlg{padding:16px;display:flex;flex-direction:column;gap:10px}
+.dlg h3{margin:0;font-family:"Archivo Narrow",sans-serif;font-size:19px}
+.dlg p{margin:0;font-size:13px;color:var(--ink-2)}
+.dlg textarea{min-height:150px;font-family:"IBM Plex Mono",monospace;font-size:11.5px}
+.dlg .row{display:flex;gap:8px;justify-content:flex-end}
+
+@media (max-width:900px){
+  .main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(200px,44dvh) minmax(0,1fr)}
+  .topstats{order:3;width:100%;margin-left:0}
+  .brandmark{margin-right:auto}
+  .side{border-left:none;border-top:1px solid var(--line)}
+  .scalebar{top:10px;right:10px;bottom:auto}
+  .topstats .stat{min-width:54px;padding:3px 8px 4px}
+  .brandmark span{display:none}
+  .detail{position:fixed;left:0;right:0;bottom:0;border-radius:14px 14px 0 0;
+    max-height:72dvh;overflow-y:auto;padding-bottom:calc(14px + env(safe-area-inset-bottom))}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media print{
+  .topbar .tbtn,.mapctl,.detail,.sidehead{display:none}
+  #root{height:auto;overflow:visible}
+  .main{display:block}
+  .mapwrap{height:150mm;page-break-after:always}
+  .list{overflow:visible}
+}
+</style>
+<div id="root"><div class="empty">Wczytywanie mapy…</div></div>
+<script type="application/json" id="map-data">__MAP_DATA__</script>
+<script type="application/json" id="saved-state">__SAVED_STATE__</script>
+<script id="app-code">
+(function () {
+  "use strict";
+
+  var D = JSON.parse(document.getElementById("map-data").textContent);
+  var EMBEDDED = JSON.parse(document.getElementById("saved-state").textContent || "{}");
+  var LS_KEY = "d2d-" + (D.slug || "map") + "-v1";
+
+  var STATUSES = [
+    { k: "todo",    label: "Do zrobienia", mark: "" },
+    { k: "done",    label: "Zrobione",     mark: "✓" },
+    { k: "away",    label: "Nikogo",       mark: "∅" },
+    { k: "refused", label: "Odmowa",       mark: "✕" },
+    { k: "locked",  label: "Brak wejścia", mark: "⌂" },
+    { k: "lead",    label: "Temat",        mark: "★" },
+    { k: "deal",    label: "Umowa",        mark: "✔" }
+  ];
+  var COVERED = { done: 1, away: 1, refused: 1, locked: 1, lead: 1, deal: 1 };
+  var byKey = {};
+  STATUSES.forEach(function (s) { byKey[s.k] = s; });
+
+  /* ------------------------------------------------------------- state */
+
+  function blank() { return { v: 1, rec: {}, seg: {} }; }
+
+  function merge(a, b) {
+    var out = blank();
+    ["rec", "seg"].forEach(function (bag) {
+      var keys = {};
+      Object.keys(a[bag] || {}).forEach(function (k) { keys[k] = 1; });
+      Object.keys(b[bag] || {}).forEach(function (k) { keys[k] = 1; });
+      Object.keys(keys).forEach(function (k) {
+        var x = (a[bag] || {})[k], y = (b[bag] || {})[k];
+        out[bag][k] = (!x || (y && (y.t || 0) >= (x.t || 0))) ? y : x;
+      });
+    });
+    return out;
+  }
+
+  function readLocal() {
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (!raw) return null;
+      var p = JSON.parse(raw);
+      return p && p.rec ? p : null;
+    } catch (e) { return null; }
+  }
+
+  var local = readLocal();
+  var cloud = EMBEDDED && EMBEDDED.rec ? EMBEDDED : blank();
+  var store = local ? merge(cloud, local) : cloud;
+  var dirty = JSON.stringify(store) !== JSON.stringify(cloud);
+
+  function persist() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch (e) {}
+  }
+
+  function rec(id) { return store.rec[id] || null; }
+  function statusOf(id) { var r = rec(id); return (r && r.s) || "todo"; }
+  function noteOf(id) { var r = rec(id); return (r && r.n) || ""; }
+
+  function setStatus(id, s) {
+    var r = store.rec[id] || (store.rec[id] = { s: "todo", n: "", t: 0 });
+    r.s = s; r.t = Date.now();
+    if (r.s === "todo" && !r.n) delete store.rec[id];
+    touched();
+  }
+  function setNote(id, n) {
+    var r = store.rec[id] || (store.rec[id] = { s: "todo", n: "", t: 0 });
+    r.n = n; r.t = Date.now();
+    if (r.s === "todo" && !r.n) delete store.rec[id];
+    touched();
+  }
+  function setSegNote(sid, n) {
+    store.seg[sid] = { n: n, t: Date.now() };
+    if (!n) delete store.seg[sid];
+    touched();
+  }
+  function touched() { dirty = true; persist(); render(); }
+
+  /* --------------------------------------------------------- geometry */
+
+  var VX0 = D.view[0], VY0 = D.view[1], VX1 = D.view[2], VY1 = D.view[3];
+  var VW = VX1 - VX0, VH = VY1 - VY0;
+  function sx(x) { return x - VX0; }
+  function sy(y) { return VY1 - y; }
+
+  function pathOf(pts, close) {
+    var out = "M" + sx(pts[0][0]).toFixed(1) + " " + sy(pts[0][1]).toFixed(1);
+    for (var i = 1; i < pts.length; i++) {
+      out += "L" + sx(pts[i][0]).toFixed(1) + " " + sy(pts[i][1]).toFixed(1);
+    }
+    return close ? out + "Z" : out;
+  }
+  function joinPaths(list, close) {
+    var out = [];
+    for (var i = 0; i < list.length; i++) if (list[i].length > 1) out.push(pathOf(list[i], close));
+    return out.join("");
+  }
+
+  var segById = {}, streetOfSeg = {}, buildingsOfSeg = {}, bldById = {};
+  D.streets.forEach(function (st) {
+    st.segments.forEach(function (sg) {
+      segById[sg.id] = sg; streetOfSeg[sg.id] = st; buildingsOfSeg[sg.id] = [];
+    });
+  });
+  D.buildings.forEach(function (b) {
+    bldById[b.id] = b;
+    if (buildingsOfSeg[b.seg]) buildingsOfSeg[b.seg].push(b);
+  });
+
+  /* ------------------------------------------------------------- shell */
+
+  var TITLE = D.title;
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+    });
+  }
+
+  var SHELL =
+    '<div class="topbar">' +
+      '<div class="brandmark"><b>' + esc(D.heading || "D2D") + '</b><span>' + esc(D.subheading || "") + '</span></div>' +
+      '<div class="topstats">' +
+        '<div class="stat"><b id="st-cov">0%</b><span>pokrycie</span></div>' +
+        '<div class="stat lead"><b id="st-lead">0</b><span>tematy</span></div>' +
+        '<div class="stat deal"><b id="st-deal">0</b><span>umowy</span></div>' +
+      '</div>' +
+      '<button class="tbtn" id="btn-data">Dane</button>' +
+      '<button class="tbtn primary" id="btn-save">Zapisz</button>' +
+    '</div>' +
+    '<div class="main">' +
+      '<div class="mapwrap">' +
+        '<svg id="map" viewBox="0 0 ' + VW.toFixed(1) + ' ' + VH.toFixed(1) + '" ' +
+             'preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa obchodu">' +
+          '<g id="cam"></g></svg>' +
+        '<div class="mapctl" id="mapctl"></div>' +
+        '<div class="scalebar"><i id="scalebar-i"></i><span id="scalebar-t"></span></div>' +
+        '<div class="detail" id="detail" hidden></div>' +
+      '</div>' +
+      '<div class="side">' +
+        '<div class="sidehead">' +
+          '<div><span class="eyebrow">Pędzel — kliknij dom, żeby oznaczyć</span>' +
+          '<div class="filters" id="brushrow"></div></div>' +
+        '</div>' +
+        '<div class="list" id="list"></div>' +
+        '<div class="legend" id="legend"></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="toast" id="toast"></div>' +
+    '<dialog id="datadlg"><form method="dialog" class="dlg">' +
+      '<h3>Kopia zapasowa</h3>' +
+      '<p>Skopiuj tekst, żeby zachować obchód, albo wklej wcześniejszą kopię i wciśnij „Wczytaj”.</p>' +
+      '<textarea id="dlgtext" spellcheck="false"></textarea>' +
+      '<div class="row">' +
+        '<button class="tbtn" id="dlg-copy" type="button">Kopiuj</button>' +
+        '<button class="tbtn" id="dlg-load" type="button">Wczytaj</button>' +
+        '<button class="tbtn primary" value="close">Zamknij</button>' +
+      '</div>' +
+    '</form></dialog>';
+
+  var root = document.getElementById("root");
+  root.innerHTML = SHELL;
+
+  var svg = document.getElementById("map");
+  var cam = document.getElementById("cam");
+  var listEl = document.getElementById("list");
+  var detailEl = document.getElementById("detail");
+  var toastEl = document.getElementById("toast");
+
+  /* ------------------------------------------------------- static map */
+
+  function layer(cls, d, extra) {
+    if (!d) return "";
+    return '<path class="' + cls + '" d="' + d + '"' + (extra || "") + "/>";
+  }
+
+  var roadsBy = { major: [], minor: [], path: [] };
+  D.ctx.roads.forEach(function (r) { (roadsBy[r.c] || roadsBy.minor).push(r.p); });
+
+  var staticSvg = "";
+  staticSvg += layer("green", joinPaths(D.ctx.green, true));
+  staticSvg += layer("water", joinPaths(D.ctx.water.map(function (w) { return w.p; }), true));
+  staticSvg += layer("road casing", joinPaths(roadsBy.major), ' stroke-width="13"');
+  staticSvg += layer("road casing", joinPaths(roadsBy.minor), ' stroke-width="9"');
+  staticSvg += layer("road", joinPaths(roadsBy.major), ' stroke-width="11"');
+  staticSvg += layer("road", joinPaths(roadsBy.minor), ' stroke-width="7"');
+  staticSvg += layer("road", joinPaths(roadsBy.path), ' stroke-width="2" stroke-opacity=".55"');
+  staticSvg += layer("rail", joinPaths(D.ctx.rail));
+  staticSvg += layer("other-b", joinPaths(D.other.map(function (b) { return b.ring; }), true));
+
+  var segSvg = D.streets.map(function (st) {
+    return st.segments.map(function (sg) {
+      return '<path class="seg-line" id="segline-' + sg.id + '" d="' + pathOf(sg.pts) + '"/>';
+    }).join("");
+  }).join("");
+
+  var bldSvg = D.buildings.map(function (b) {
+    return '<path class="bld" data-id="' + b.id + '" d="' + pathOf(b.ring, true) + '"><title>' +
+      esc(b.st + " " + b.no) + "</title></path>";
+  }).join("");
+
+  var numSvg = D.buildings.map(function (b) {
+    return '<text class="numlab" data-id="' + b.id + '" x="' + sx(b.c[0]).toFixed(1) +
+      '" y="' + sy(b.c[1]).toFixed(1) + '">' + esc(b.no) + "</text>";
+  }).join("");
+
+  /* One label per stretch of street, never two on top of each other. */
+  function labelSpots(st) {
+    var placed = [];
+    st.segments.slice().sort(function (a, b) { return b.len - a.len; }).forEach(function (sg) {
+      if (sg.len < 90 && placed.length) return;
+      var pts = sg.pts, mid = pts[Math.floor(pts.length / 2)];
+      for (var i = 0; i < placed.length; i++) {
+        if (Math.hypot(placed[i].p[0] - mid[0], placed[i].p[1] - mid[1]) < 320) return;
+      }
+      var a = pts[0], z = pts[pts.length - 1];
+      var ang = Math.atan2(-(sy(z[1]) - sy(a[1])), sx(z[0]) - sx(a[0])) * 180 / Math.PI;
+      if (ang > 90) ang -= 180;
+      if (ang < -90) ang += 180;
+      placed.push({ p: mid, ang: ang });
+    });
+    return placed;
+  }
+
+  var streetLabSvg = D.streets.map(function (st) {
+    return labelSpots(st).map(function (spot) {
+      return '<text class="streetlab" x="' + sx(spot.p[0]).toFixed(1) + '" y="' + sy(spot.p[1]).toFixed(1) +
+        '" transform="rotate(' + (-spot.ang).toFixed(1) + ' ' + sx(spot.p[0]).toFixed(1) + " " +
+        sy(spot.p[1]).toFixed(1) + ')" dy="-5">' + esc(st.short) + "</text>";
+    }).join("");
+  }).join("");
+
+  cam.innerHTML = staticSvg + '<g id="seglines">' + segSvg + "</g>" +
+    '<g id="blds">' + bldSvg + "</g>" +
+    '<g id="streetlabs">' + streetLabSvg + "</g>" +
+    '<g id="labels">' + numSvg + "</g>";
+
+  var labelsG = document.getElementById("labels");
+  var streetLabsG = document.getElementById("streetlabs");
+
+  /* ------------------------------------------------------ pan & zoom */
+
+  var view = { k: 1, tx: 0, ty: 0 };
+  function applyCam() {
+    cam.setAttribute("transform", "translate(" + view.tx.toFixed(2) + " " + view.ty.toFixed(2) +
+      ") scale(" + view.k.toFixed(4) + ")");
+    var base = baseScale();
+    var pxPerM = base * view.k;
+    labelsG.style.fontSize = (10.5 / pxPerM).toFixed(2) + "px";
+    streetLabsG.style.fontSize = (12 / pxPerM).toFixed(2) + "px";
+    labelsG.classList.toggle("hide", pxPerM < 0.75);
+    streetLabsG.classList.toggle("hide", pxPerM < 0.28);
+    drawScale(pxPerM);
+    try { sessionStorage.setItem(LS_KEY + "-view", JSON.stringify(view)); } catch (e) {}
+  }
+  function baseScale() {
+    var r = svg.getBoundingClientRect();
+    if (!r.width) return 1;
+    return Math.min(r.width / VW, r.height / VH);
+  }
+  function drawScale(pxPerM) {
+    var targets = [20, 50, 100, 200, 500, 1000], pick = targets[0];
+    for (var i = 0; i < targets.length; i++) {
+      if (targets[i] * pxPerM <= 120) pick = targets[i];
+    }
+    document.getElementById("scalebar-i").style.width = (pick * pxPerM).toFixed(0) + "px";
+    document.getElementById("scalebar-t").textContent = pick + " m";
+  }
+
+  function toCam(ev) {
+    var ctm = svg.getScreenCTM();
+    if (!ctm) return { x: 0, y: 0 };
+    var p = svg.createSVGPoint();
+    p.x = ev.clientX; p.y = ev.clientY;
+    var v = p.matrixTransform(ctm.inverse());
+    return { x: (v.x - view.tx) / view.k, y: (v.y - view.ty) / view.k };
+  }
+
+  function zoomAt(ev, factor) {
+    var c = toCam(ev);
+    var nk = Math.max(0.55, Math.min(26, view.k * factor));
+    var ctm = svg.getScreenCTM();
+    if (!ctm) return;
+    var p = svg.createSVGPoint(); p.x = ev.clientX; p.y = ev.clientY;
+    var v = p.matrixTransform(ctm.inverse());
+    view.tx = v.x - c.x * nk;
+    view.ty = v.y - c.y * nk;
+    view.k = nk;
+    applyCam();
+  }
+
+  svg.addEventListener("wheel", function (e) {
+    e.preventDefault();
+    zoomAt(e, Math.exp(-e.deltaY * 0.0016));
+  }, { passive: false });
+
+  var ptrs = {}, dragFrom = null, pinch = null, moved = 0;
+  svg.addEventListener("pointerdown", function (e) {
+    svg.setPointerCapture(e.pointerId);
+    ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(ptrs);
+    moved = 0;
+    if (ids.length === 1) {
+      dragFrom = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty };
+      svg.classList.add("dragging");
+    } else if (ids.length === 2) {
+      dragFrom = null;
+      pinch = pinchState(ids);
+    }
+  });
+  function pinchState(ids) {
+    var a = ptrs[ids[0]], b = ptrs[ids[1]];
+    var dist = Math.hypot(a.x - b.x, a.y - b.y);
+    var mid = { clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 };
+    return { dist: dist, cam: toCam(mid), k: view.k };
+  }
+  svg.addEventListener("pointermove", function (e) {
+    if (!ptrs[e.pointerId]) return;
+    ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(ptrs);
+    if (ids.length >= 2 && pinch) {
+      var a = ptrs[ids[0]], b = ptrs[ids[1]];
+      var dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      var mid = { clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 };
+      var nk = Math.max(0.55, Math.min(26, pinch.k * (dist / pinch.dist)));
+      var ctm = svg.getScreenCTM();
+      if (ctm) {
+        var p = svg.createSVGPoint(); p.x = mid.clientX; p.y = mid.clientY;
+        var v = p.matrixTransform(ctm.inverse());
+        view.k = nk;
+        view.tx = v.x - pinch.cam.x * nk;
+        view.ty = v.y - pinch.cam.y * nk;
+        applyCam();
+      }
+      moved = 99;
+      return;
+    }
+    if (!dragFrom) return;
+    var scale = baseScale() || 1;
+    var dx = (e.clientX - dragFrom.x) / scale, dy = (e.clientY - dragFrom.y) / scale;
+    moved = Math.max(moved, Math.abs(e.clientX - dragFrom.x) + Math.abs(e.clientY - dragFrom.y));
+    view.tx = dragFrom.tx + dx; view.ty = dragFrom.ty + dy;
+    applyCam();
+  });
+  function endPtr(e) {
+    delete ptrs[e.pointerId];
+    if (Object.keys(ptrs).length < 2) pinch = null;
+    if (!Object.keys(ptrs).length) { dragFrom = null; svg.classList.remove("dragging"); }
+  }
+  svg.addEventListener("pointerup", endPtr);
+  svg.addEventListener("pointercancel", endPtr);
+
+  svg.addEventListener("click", function (e) {
+    if (moved > 6) return;
+    var hit = e.target.closest ? e.target.closest(".bld") : null;
+    if (!hit) return;
+    hitBuilding(hit.getAttribute("data-id"));
+  });
+
+  function fitTo(pts, pad) {
+    if (!pts.length) return;
+    var xs = pts.map(function (p) { return sx(p[0]); });
+    var ys = pts.map(function (p) { return sy(p[1]); });
+    var x0 = Math.min.apply(null, xs) - pad, x1 = Math.max.apply(null, xs) + pad;
+    var y0 = Math.min.apply(null, ys) - pad, y1 = Math.max.apply(null, ys) + pad;
+    var k = Math.max(0.55, Math.min(26, Math.min(VW / (x1 - x0), VH / (y1 - y0))));
+    view.k = k;
+    view.tx = VW / 2 - ((x0 + x1) / 2) * k;
+    view.ty = VH / 2 - ((y0 + y1) / 2) * k;
+    applyCam();
+  }
+
+  /* -------------------------------------------------------- selection */
+
+  var selected = null, activeSeg = null, brush = null, filter = "all";
+
+  function hitBuilding(id) {
+    if (brush) {
+      setStatus(id, brush);
+      flash(byKey[brush].label + " · " + bldById[id].st + " " + bldById[id].no);
+      return;
+    }
+    select(id);
+  }
+
+  function select(id) {
+    selected = id;
+    activeSeg = id ? bldById[id].seg : activeSeg;
+    render();
+    var el = listEl.querySelector('.num[data-id="' + id + '"]');
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }
+
+  /* ----------------------------------------------------------- render */
+
+  function counts(ids) {
+    var c = { total: ids.length, covered: 0, lead: 0, deal: 0 };
+    STATUSES.forEach(function (s) { c[s.k] = 0; });
+    ids.forEach(function (id) {
+      var s = statusOf(id);
+      c[s]++;
+      if (COVERED[s]) c.covered++;
+    });
+    return c;
+  }
+
+  function render() {
+    renderMap();
+    renderList();
+    renderStats();
+    renderDetail();
+  }
+
+  function renderStats() {
+    var all = D.buildings.map(function (b) { return b.id; });
+    var c = counts(all);
+    document.getElementById("st-cov").textContent =
+      (c.total ? Math.round(c.covered / c.total * 100) : 0) + "%";
+    document.getElementById("st-lead").textContent = c.lead;
+    document.getElementById("st-deal").textContent = c.deal;
+    var save = document.getElementById("btn-save");
+    save.classList.toggle("dirty", dirty);
+    save.textContent = dirty ? "Zapisz ●" : "Zapisano";
+    save.disabled = !dirty;
+  }
+
+  function visible(b) {
+    var s = statusOf(b.id);
+    if (filter === "todo") return s === "todo";
+    if (filter === "lead") return s === "lead" || s === "deal";
+    return true;
+  }
+
+  function renderMap() {
+    D.buildings.forEach(function (b) {
+      var el = cam.querySelector('.bld[data-id="' + b.id + '"]');
+      if (!el) return;
+      var s = statusOf(b.id);
+      el.setAttribute("class", "bld s-" + s + (b.id === selected ? " sel" : "") +
+        (visible(b) ? "" : " dim"));
+      var lab = labelsG.querySelector('[data-id="' + b.id + '"]');
+      if (lab) lab.setAttribute("class", "numlab" + (s !== "todo" ? " on" : ""));
+    });
+    Object.keys(segById).forEach(function (sid) {
+      var el = document.getElementById("segline-" + sid);
+      if (el) el.classList.toggle("active", sid === activeSeg);
+    });
+  }
+
+  function barHtml(c) {
+    var parts = "";
+    ["deal", "lead", "done", "away", "refused", "locked"].forEach(function (k) {
+      if (!c[k]) return;
+      parts += '<i style="width:' + (c[k] / c.total * 100).toFixed(1) +
+        '%;background:var(--st-' + k + ')"></i>';
+    });
+    return '<div class="bar">' + parts + "</div>";
+  }
+
+  function renderList() {
+    var html = "";
+    D.streets.forEach(function (st) {
+      var all = [];
+      st.segments.forEach(function (sg) {
+        buildingsOfSeg[sg.id].forEach(function (b) { all.push(b.id); });
+      });
+      var cs = counts(all);
+      html += '<div class="street-h"><h2>' + esc(st.short) + "</h2>" +
+        '<div class="sub mono">' + cs.covered + "/" + cs.total + " adresów · " +
+        cs.lead + " tematów</div></div>";
+      st.segments.forEach(function (sg) {
+        var bs = buildingsOfSeg[sg.id].filter(visible);
+        var c = counts(buildingsOfSeg[sg.id].map(function (b) { return b.id; }));
+        html += '<div class="seg' + (sg.id === activeSeg ? " active" : "") + '" data-seg="' + sg.id + '">' +
+          '<button class="seg-top" data-zoom="' + sg.id + '">' +
+            '<span class="nm">' + esc(sg.from) + " → " + esc(sg.to) + "</span>" +
+            '<span class="ct mono">' + c.covered + "/" + c.total + " · " + sg.len + "&nbsp;m</span>" +
+          "</button>" + barHtml(c);
+        if (!bs.length) {
+          html += '<div class="eyebrow">— nic do pokazania w tym filtrze —</div>';
+        } else {
+          html += '<div class="side-row">' +
+            colHtml("nieparzyste", bs.filter(function (b) { return b.par === "n"; })) +
+            colHtml("parzyste", bs.filter(function (b) { return b.par === "p"; })) +
+            "</div>";
+        }
+        var note = (store.seg[sg.id] || {}).n;
+        if (note) html += '<div class="eyebrow" style="margin-top:8px">Notatka</div><div style="font-size:12.5px">' + esc(note) + "</div>";
+        html += "</div>";
+      });
+    });
+    listEl.innerHTML = html || '<div class="empty">Brak danych.</div>';
+  }
+
+  function colHtml(label, list) {
+    if (!list.length) return "";
+    return '<div class="side-col"><span class="eyebrow">' + label + '</span><div class="nums">' +
+      list.map(function (b) {
+        var s = statusOf(b.id);
+        return '<button class="num' + (s !== "todo" ? " on b-" + s : "") +
+          (b.id === selected ? " sel" : "") + (noteOf(b.id) ? " has-note" : "") +
+          '" data-id="' + b.id + '" title="' + esc(b.st + " " + b.no) + '">' + esc(b.no) + "</button>";
+      }).join("") + "</div></div>";
+  }
+
+  function renderDetail() {
+    if (!selected) { detailEl.hidden = true; return; }
+    var b = bldById[selected];
+    var sg = segById[b.seg], st = streetOfSeg[b.seg];
+    var meta = [];
+    if (b.nm) meta.push(b.nm);
+    if (b.lv) meta.push(b.lv + " kondygnacji");
+    if (b.fl) meta.push(b.fl + " mieszkań");
+    meta.push(esc(sg.from) + " → " + esc(sg.to));
+    detailEl.hidden = false;
+    detailEl.innerHTML =
+      '<div class="d-head"><div><h3>' + esc(st.short + " " + b.no) + "</h3>" +
+        '<div class="meta">' + meta.join(" · ") + "</div></div>" +
+        '<button class="d-close" id="d-close" aria-label="Zamknij">×</button></div>' +
+      '<div class="stgrid">' + STATUSES.map(function (s) {
+        return '<button class="stbtn" data-set="' + s.k + '" aria-pressed="' +
+          (statusOf(b.id) === s.k) + '"><span class="dot" style="background:' +
+          (s.k === "todo" ? "var(--st-todo)" : "var(--st-" + s.k + ")") + '"></span>' +
+          esc(s.label) + "</button>";
+      }).join("") + "</div>" +
+      '<textarea id="d-note" placeholder="Notatka: kod do domofonu, kiedy wrócić, kto otworzył…">' +
+      esc(noteOf(b.id)) + "</textarea>" +
+      '<div class="d-foot"><span class="mono">' + stampOf(b.id) + "</span>" +
+        '<div class="d-nav"><button class="tbtn" data-step="-1">‹ poprz.</button>' +
+        '<button class="tbtn" data-step="1">nast. ›</button></div></div>';
+  }
+
+  function stampOf(id) {
+    var r = rec(id);
+    if (!r || !r.t) return "nie odwiedzone";
+    var d = new Date(r.t);
+    return "ostatnio: " + d.toLocaleDateString("pl-PL") + " " +
+      d.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function step(dir) {
+    var b = bldById[selected];
+    var list = buildingsOfSeg[b.seg].filter(function (x) { return x.par === b.par; });
+    var i = list.findIndex(function (x) { return x.id === b.id; });
+    var next = list[i + dir];
+    if (next) select(next.id);
+  }
+
+  /* ------------------------------------------------------- interaction */
+
+  document.getElementById("brushrow").innerHTML =
+    '<button class="chipbtn" data-brush="" aria-pressed="true">bez pędzla</button>' +
+    STATUSES.slice(1).map(function (s) {
+      return '<button class="chipbtn" data-brush="' + s.k + '" aria-pressed="false">' +
+        s.mark + " " + esc(s.label) + "</button>";
+    }).join("");
+
+  document.getElementById("mapctl").innerHTML =
+    '<button class="chipbtn" data-filter="all" aria-pressed="true">Wszystko</button>' +
+    '<button class="chipbtn" data-filter="todo" aria-pressed="false">Do zrobienia</button>' +
+    '<button class="chipbtn" data-filter="lead" aria-pressed="false">Tematy i umowy</button>' +
+    '<button class="chipbtn" id="btn-fit">Cały obszar</button>';
+
+  document.getElementById("legend").innerHTML = STATUSES.map(function (s) {
+    return '<span><i style="background:' + (s.k === "todo" ? "var(--st-todo)" : "var(--st-" + s.k + ")") +
+      '"></i>' + esc(s.label) + "</span>";
+  }).join("");
+
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest ? e.target.closest("[data-brush],[data-filter],[data-id],[data-zoom],[data-set],[data-step],#d-close,#btn-fit,#btn-save,#btn-data,#dlg-copy,#dlg-load") : null;
+    if (!t) return;
+    if (t.hasAttribute("data-brush")) {
+      brush = t.getAttribute("data-brush") || null;
+      [].forEach.call(document.querySelectorAll("[data-brush]"), function (b) {
+        b.setAttribute("aria-pressed", String((b.getAttribute("data-brush") || null) === brush));
+      });
+      return;
+    }
+    if (t.hasAttribute("data-filter")) {
+      filter = t.getAttribute("data-filter");
+      [].forEach.call(document.querySelectorAll("[data-filter]"), function (b) {
+        b.setAttribute("aria-pressed", String(b.getAttribute("data-filter") === filter));
+      });
+      render();
+      return;
+    }
+    if (t.id === "btn-fit") { view = { k: 1, tx: 0, ty: 0 }; applyCam(); return; }
+    if (t.id === "btn-save") { saveCloud(); return; }
+    if (t.id === "btn-data") { openData(); return; }
+    if (t.id === "dlg-copy") { copyData(); return; }
+    if (t.id === "dlg-load") { loadData(); return; }
+    if (t.id === "d-close") { selected = null; render(); return; }
+    if (t.hasAttribute("data-set")) { setStatus(selected, t.getAttribute("data-set")); return; }
+    if (t.hasAttribute("data-step")) { step(Number(t.getAttribute("data-step"))); return; }
+    if (t.hasAttribute("data-zoom")) {
+      var sg = segById[t.getAttribute("data-zoom")];
+      activeSeg = sg.id;
+      var pts = sg.pts.slice();
+      buildingsOfSeg[sg.id].forEach(function (b) { pts.push(b.c); });
+      fitTo(pts, 30);
+      render();
+      return;
+    }
+    if (t.classList.contains("num")) { hitBuilding(t.getAttribute("data-id")); return; }
+  });
+
+  document.addEventListener("input", function (e) {
+    if (e.target.id === "d-note" && selected) {
+      clearTimeout(noteTimer);
+      var id = selected, val = e.target.value;
+      noteTimer = setTimeout(function () { setNoteQuiet(id, val); }, 400);
+    }
+  });
+  var noteTimer = null;
+  function setNoteQuiet(id, val) {
+    var r = store.rec[id] || (store.rec[id] = { s: "todo", n: "", t: 0 });
+    r.n = val; r.t = Date.now();
+    if (r.s === "todo" && !r.n) delete store.rec[id];
+    dirty = true; persist();
+    renderList(); renderStats();
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
+    if (e.key === "Escape") { selected = null; render(); }
+    if (!selected) return;
+    var idx = "1234567".indexOf(e.key);
+    if (idx >= 0) { setStatus(selected, STATUSES[idx].k); e.preventDefault(); }
+    if (e.key === "ArrowRight") { step(1); e.preventDefault(); }
+    if (e.key === "ArrowLeft") { step(-1); e.preventDefault(); }
+  });
+
+  var toastTimer = null;
+  function flash(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 1700);
+  }
+
+  /* ---------------------------------------------------------- storage */
+
+  function openData() {
+    document.getElementById("dlgtext").value = JSON.stringify(store);
+    document.getElementById("datadlg").showModal();
+  }
+  function copyData() {
+    var ta = document.getElementById("dlgtext");
+    ta.select();
+    if (navigator.clipboard) navigator.clipboard.writeText(ta.value).then(function () { flash("Skopiowano"); },
+      function () { flash("Zaznaczono — skopiuj ręcznie"); });
+    else flash("Zaznaczono — skopiuj ręcznie");
+  }
+  function loadData() {
+    try {
+      var p = JSON.parse(document.getElementById("dlgtext").value);
+      if (!p || !p.rec) throw new Error("brak pola rec");
+      store = merge(store, p);
+      dirty = true; persist(); render();
+      flash("Wczytano kopię");
+      document.getElementById("datadlg").close();
+    } catch (err) {
+      flash("Nie mogę odczytać tego tekstu");
+    }
+  }
+
+  var cloudReady = false, cloudApi = null;
+  if (window.claude && window.claude.use) {
+    window.claude.use("artifact").then(function (api) {
+      if (!api) return;
+      cloudApi = api; cloudReady = true; renderStats();
+    }, function () {});
+  }
+
+  function fullDocument() {
+    var css = document.getElementById("app-css").textContent;
+    var code = document.getElementById("app-code").textContent;
+    var data = document.getElementById("map-data").textContent;
+    var open = "<" + "script", close = "<" + "/script>";
+    return '<!doctype html>\n<html lang="pl">\n<head>\n<meta charset="utf-8">\n' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n' +
+      "<title>" + esc(TITLE) + "</title>\n" +
+      '<link rel="preconnect" href="https://fonts.googleapis.com">\n' +
+      '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n' +
+      '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">\n' +
+      '<style id="app-css">' + css + "</style>\n</head>\n<body>\n" +
+      '<div id="root"><div class="empty">Wczytywanie mapy…</div></div>\n' +
+      open + ' type="application/json" id="map-data">' + data + close + "\n" +
+      open + ' type="application/json" id="saved-state">' + JSON.stringify(store) + close + "\n" +
+      open + ' id="app-code">' + code + close + "\n</body>\n</html>";
+  }
+
+  function saveCloud() {
+    persist();
+    if (!cloudApi) { flash("Zapisane w tej przeglądarce"); dirty = false; renderStats(); return; }
+    var btn = document.getElementById("btn-save");
+    btn.disabled = true; btn.textContent = "Zapisuję…";
+    try { sessionStorage.setItem(LS_KEY + "-flash", "Zapisano w chmurze"); } catch (e) {}
+    cloudApi.publish(fullDocument()).then(function () {
+      dirty = false; renderStats();
+    }, function (err) {
+      var code = (err && err.code) || "upstream_error";
+      if (code === "conflict") return;               // the shell reloads us to the winner
+      dirty = true; renderStats();
+      flash(code === "not_writer" || code === "not_granted"
+        ? "Tylko podgląd — zapis został w tej przeglądarce"
+        : "Chmura niedostępna — zapis został w tej przeglądarce");
+    });
+  }
+
+  window.addEventListener("beforeunload", function (e) {
+    persist();
+  });
+
+  /* ------------------------------------------------------------- boot */
+
+  try {
+    var vs = JSON.parse(sessionStorage.getItem(LS_KEY + "-view") || "null");
+    if (vs && typeof vs.k === "number") view = vs;
+    var fl = sessionStorage.getItem(LS_KEY + "-flash");
+    if (fl) { sessionStorage.removeItem(LS_KEY + "-flash"); setTimeout(function () { flash(fl); }, 300); }
+  } catch (e) {}
+
+  window.addEventListener("resize", applyCam);
+  applyCam();
+  render();
+})();
+</script>
