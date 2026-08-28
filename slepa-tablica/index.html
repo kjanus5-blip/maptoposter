@@ -1,0 +1,1612 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ślepa Tablica</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400;1,600&display=swap">
+<style>
+/* ---------- tokens: preparat anatomiczny — kość, karmin, żylny błękit ---------- */
+:root{
+  --bg:#E7E9E2; --surface:#F7F8F4; --surface-2:#EEF0EA; --sunken:#DDE0D8;
+  --ink:#18211E; --ink-soft:#3B4642; --muted:#66716B; --line:#CBD0C6; --line-strong:#AEB5A9;
+  --accent:#97293A; --accent-ink:#FFF5F2; --accent-soft:#F3DDE0;
+  --cool:#2F5468; --cool-soft:#DEE7EC;
+  --ok:#2C6B4F; --ok-soft:#DBE9DF; --warn:#8A5F0E; --warn-soft:#F2E6CC;
+  --shadow:0 1px 2px rgba(24,33,30,.08), 0 8px 24px -12px rgba(24,33,30,.28);
+  --stage:#DCDFD7;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1518; --surface:#171F23; --surface-2:#1E272B; --sunken:#0B1013;
+    --ink:#E7EBE5; --ink-soft:#C2CBC5; --muted:#8D9A93; --line:#2A353A; --line-strong:#3C4A50;
+    --accent:#E1596B; --accent-ink:#25090F; --accent-soft:#3A1C23;
+    --cool:#84B2C9; --cool-soft:#1C2E38;
+    --ok:#5FB98A; --ok-soft:#16301F; --warn:#D9A440; --warn-soft:#312512;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+    --stage:#0A0F12;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1518; --surface:#171F23; --surface-2:#1E272B; --sunken:#0B1013;
+  --ink:#E7EBE5; --ink-soft:#C2CBC5; --muted:#8D9A93; --line:#2A353A; --line-strong:#3C4A50;
+  --accent:#E1596B; --accent-ink:#25090F; --accent-soft:#3A1C23;
+  --cool:#84B2C9; --cool-soft:#1C2E38;
+  --ok:#5FB98A; --ok-soft:#16301F; --warn:#D9A440; --warn-soft:#312512;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+  --stage:#0A0F12;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; font-size:15px; line-height:1.5;
+  -webkit-font-smoothing:antialiased; overflow:hidden;
+}
+h1,h2,h3{font-family:"IBM Plex Serif",Georgia,serif; font-weight:600; margin:0; text-wrap:balance; letter-spacing:-.01em}
+.lat{font-family:"IBM Plex Serif",Georgia,serif; font-style:italic}
+.eyebrow{font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); font-weight:600}
+.num{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+button,input,select,textarea{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--cool); outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important; transition-duration:.01ms !important}}
+
+/* ---------- shell ---------- */
+#app{display:flex; flex-direction:column; height:100dvh}
+header.top{
+  display:flex; align-items:center; gap:14px; padding:0 16px; height:56px; flex:none;
+  background:var(--surface); border-bottom:1px solid var(--line);
+}
+.brand{display:flex; align-items:baseline; gap:9px; margin-right:2px}
+.brand .mark{
+  width:22px; height:22px; border-radius:50%; border:2px solid var(--accent); position:relative; align-self:center; flex:none;
+}
+.brand .mark::after{content:""; position:absolute; inset:4px; border-radius:50%; background:var(--accent)}
+.brand b{white-space:nowrap; font-family:"IBM Plex Serif",Georgia,serif; font-size:17px; font-weight:600; letter-spacing:-.02em}
+.brand span{font-size:11px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase}
+.tabs{display:flex; gap:2px; background:var(--surface-2); padding:3px; border-radius:var(--r); border:1px solid var(--line)}
+.tabs button{
+  background:none; border:0; padding:6px 13px; border-radius:7px; cursor:pointer; color:var(--muted);
+  font-size:13.5px; font-weight:500; white-space:nowrap;
+}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-selected="true"]{background:var(--surface); color:var(--ink); box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.top .spacer{flex:1}
+.deckchip{
+  display:flex; align-items:center; gap:8px; max-width:34ch; overflow:hidden;
+  padding:5px 10px 5px 12px; border-radius:999px; background:var(--surface-2); border:1px solid var(--line); font-size:13px;
+}
+.deckchip .nm{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500}
+.deckchip .cnt{color:var(--muted)}
+.iconbtn{
+  background:var(--surface-2); border:1px solid var(--line); border-radius:8px; width:34px; height:34px;
+  display:grid; place-items:center; cursor:pointer; color:var(--ink-soft); flex:none;
+}
+.iconbtn:hover{border-color:var(--line-strong); color:var(--ink)}
+main{flex:1; min-height:0; display:flex}
+.stagewrap{flex:1; min-width:0; position:relative; background:var(--stage); overflow:hidden}
+canvas#stage{display:block; width:100%; height:100%; touch-action:none}
+.side{
+  width:352px; flex:none; background:var(--surface); border-left:1px solid var(--line);
+  display:flex; flex-direction:column; min-height:0;
+}
+.side .pad{padding:16px}
+.side .scroll{overflow-y:auto; min-height:0; flex:1}
+
+/* ---------- controls ---------- */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:7px; cursor:pointer;
+  padding:8px 14px; border-radius:9px; border:1px solid var(--line-strong); background:var(--surface);
+  color:var(--ink); font-size:14px; font-weight:500; transition:background .12s, border-color .12s;
+}
+.btn:hover{background:var(--surface-2); border-color:var(--muted)}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:none; border-color:transparent; color:var(--muted); padding:7px 9px}
+.btn.ghost:hover{background:var(--surface-2); color:var(--ink)}
+.btn.wide{width:100%}
+.btn[disabled]{opacity:.45; cursor:not-allowed}
+.btn.small{padding:5px 10px; font-size:13px; border-radius:7px}
+input[type=text],textarea,select{
+  width:100%; padding:9px 11px; border-radius:9px; border:1px solid var(--line-strong);
+  background:var(--surface-2); color:var(--ink);
+}
+input[type=text]::placeholder{color:var(--muted)}
+label.fld{display:block; margin-bottom:12px}
+label.fld .lbl{display:block; font-size:12px; color:var(--muted); margin-bottom:5px; font-weight:500}
+.row{display:flex; gap:8px; align-items:center}
+.hint{font-size:12.5px; color:var(--muted); line-height:1.45}
+kbd{
+  font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:var(--sunken); border:1px solid var(--line);
+  border-bottom-width:2px; border-radius:5px; padding:1px 5px; color:var(--ink-soft);
+}
+hr.sep{border:0; border-top:1px solid var(--line); margin:14px 0}
+
+/* ---------- library ---------- */
+.libwrap{flex:1; overflow-y:auto; background:var(--bg)}
+.lib{max-width:1080px; margin:0 auto; padding:40px 24px 72px}
+.lib .head{margin-bottom:26px}
+.lib h1{font-size:30px; margin-bottom:6px}
+.lib .head p{color:var(--muted); margin:0; max-width:62ch}
+.dropzone{
+  border:1.5px dashed var(--line-strong); border-radius:14px; padding:26px; text-align:center;
+  background:var(--surface); margin-bottom:26px; transition:border-color .15s, background .15s;
+}
+.dropzone.hot{border-color:var(--accent); background:var(--accent-soft)}
+.dropzone h3{font-size:17px; margin-bottom:4px}
+.dropzone p{margin:0 0 14px; color:var(--muted); font-size:13.5px}
+.grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(232px,1fr)); gap:16px}
+.card{
+  background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden;
+  display:flex; flex-direction:column; box-shadow:var(--shadow); text-align:left;
+}
+.card .thumb{height:172px; background:var(--sunken); cursor:pointer; border:0; padding:0; width:100%; display:block}
+.card .thumb img{width:100%; height:100%; object-fit:contain; display:block}
+.card .body{padding:12px 13px 13px; display:flex; flex-direction:column; gap:9px; flex:1}
+.card .body h3{font-size:15.5px; line-height:1.3}
+.meta{display:flex; flex-wrap:wrap; gap:6px 10px; font-size:12px; color:var(--muted); align-items:center}
+.dot{width:3px; height:3px; border-radius:50%; background:var(--line-strong)}
+.bar{height:5px; border-radius:3px; background:var(--sunken); overflow:hidden}
+.bar i{display:block; height:100%; background:var(--ok); border-radius:3px}
+.pill{
+  white-space:nowrap; display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; padding:2px 8px;
+  border-radius:999px; background:var(--surface-2); border:1px solid var(--line); color:var(--muted);
+}
+.pill.due{background:var(--accent-soft); border-color:transparent; color:var(--accent)}
+.pill.ok{background:var(--ok-soft); border-color:transparent; color:var(--ok)}
+.cardacts{display:flex; gap:6px; margin-top:auto; padding-top:2px}
+
+/* ---------- editor list ---------- */
+.lab{
+  display:flex; gap:10px; padding:9px 10px; border-radius:9px; cursor:pointer; align-items:flex-start;
+  border:1px solid transparent;
+}
+.lab:hover{background:var(--surface-2)}
+.lab.sel{background:var(--accent-soft); border-color:var(--accent)}
+.lab .idx{
+  flex:none; width:22px; height:22px; border-radius:50%; background:var(--accent); color:var(--accent-ink);
+  display:grid; place-items:center; font-size:11.5px; font-weight:600; font-family:"IBM Plex Mono",monospace;
+}
+.lab .txt{flex:1; min-width:0; font-size:14px; word-break:break-word}
+.lab .txt.empty{color:var(--muted); font-style:italic}
+.lab .alt{display:block; font-size:12px; color:var(--muted)}
+.lab .del{opacity:0; background:none; border:0; cursor:pointer; color:var(--muted); padding:2px 4px; line-height:1}
+.lab:hover .del,.lab.sel .del{opacity:1}
+.lab .del:hover{color:var(--accent)}
+.empty-state{padding:22px 6px; text-align:center; color:var(--muted); font-size:13.5px}
+
+/* ---------- quiz ---------- */
+.quiz{display:flex; flex-direction:column; height:100%}
+.quiz .prog{height:3px; background:var(--sunken); flex:none}
+.quiz .prog i{display:block; height:100%; background:var(--accent); transition:width .3s}
+.qbody{padding:18px 16px; display:flex; flex-direction:column; gap:14px; flex:1; min-height:0; overflow-y:auto}
+.ask{font-size:13px; color:var(--muted)}
+.asked{font-family:"IBM Plex Serif",Georgia,serif; font-size:22px; font-style:italic; line-height:1.25}
+.answer-in{font-size:16px; padding:12px 13px}
+.verdict{border-radius:11px; padding:13px 14px; border:1px solid transparent}
+.verdict h4{margin:0 0 5px; font-size:13px; letter-spacing:.06em; text-transform:uppercase; font-family:"IBM Plex Sans",sans-serif; font-weight:600}
+.verdict .given{font-size:13px; color:var(--muted); margin-top:7px}
+.verdict .correct{font-family:"IBM Plex Serif",Georgia,serif; font-style:italic; font-size:19px; line-height:1.3}
+.v-ok{background:var(--ok-soft); border-color:var(--ok)} .v-ok h4{color:var(--ok)}
+.v-near{background:var(--warn-soft); border-color:var(--warn)} .v-near h4{color:var(--warn)}
+.v-bad{background:var(--accent-soft); border-color:var(--accent)} .v-bad h4{color:var(--accent)}
+.choices{display:flex; flex-direction:column; gap:8px}
+.choice{
+  text-align:left; padding:11px 13px; border-radius:10px; border:1px solid var(--line-strong);
+  background:var(--surface-2); cursor:pointer; font-family:"IBM Plex Serif",Georgia,serif; font-style:italic; font-size:15.5px;
+}
+.choice:hover{border-color:var(--muted)}
+.choice.pick-ok{background:var(--ok-soft); border-color:var(--ok)}
+.choice.pick-bad{background:var(--accent-soft); border-color:var(--accent)}
+.choice[disabled]{cursor:default}
+.summary{padding:26px 20px; text-align:center; display:flex; flex-direction:column; gap:14px; align-items:center}
+.score{font-family:"IBM Plex Mono",monospace; font-size:44px; font-weight:500; line-height:1}
+.score small{font-size:17px; color:var(--muted)}
+.misslist{width:100%; text-align:left; display:flex; flex-direction:column; gap:6px}
+.missrow{display:flex; gap:9px; font-size:13.5px; padding:7px 9px; background:var(--surface-2); border-radius:8px}
+
+/* ---------- stats ---------- */
+.statgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px}
+.stat{background:var(--surface-2); border:1px solid var(--line); border-radius:11px; padding:12px}
+.stat .v{font-family:"IBM Plex Mono",monospace; font-size:25px; line-height:1.1}
+.stat .k{font-size:11.5px; color:var(--muted); margin-top:3px}
+.boxrow{display:flex; gap:5px; align-items:flex-end; height:64px; margin-top:6px}
+.boxrow div{flex:1; background:var(--cool); border-radius:4px 4px 0 0; min-height:3px; position:relative}
+.boxrow div span{position:absolute; top:-17px; left:0; right:0; text-align:center; font-size:11px; color:var(--muted); font-family:"IBM Plex Mono",monospace}
+.boxlbl{display:flex; gap:5px; margin-top:4px}
+.boxlbl div{flex:1; text-align:center; font-size:10.5px; color:var(--muted)}
+
+/* ---------- toolbar over stage ---------- */
+.stagebar:empty{display:none}
+.stagebar{
+  position:absolute; left:12px; top:12px; display:flex; gap:6px; align-items:center;
+  background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:5px; box-shadow:var(--shadow);
+  max-width:calc(100% - 24px); flex-wrap:wrap;
+}
+.stagebar .sepv{width:1px; height:20px; background:var(--line)}
+.toggle{
+  display:inline-flex; align-items:center; gap:6px; font-size:13px; padding:5px 9px; border-radius:7px;
+  border:1px solid transparent; background:none; cursor:pointer; color:var(--muted);
+}
+.toggle[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent); border-color:var(--accent)}
+.toggle:hover{color:var(--ink)}
+.stagenote{
+  position:absolute; left:50%; bottom:14px; transform:translateX(-50%); background:var(--surface);
+  border:1px solid var(--line); border-radius:999px; padding:6px 15px; font-size:12.5px; color:var(--muted);
+  box-shadow:var(--shadow); white-space:nowrap; max-width:calc(100% - 24px); overflow:hidden; text-overflow:ellipsis;
+}
+.busy{
+  position:absolute; inset:0; background:color-mix(in srgb,var(--stage) 78%, transparent); display:grid; place-items:center;
+  text-align:center; padding:20px; z-index:5;
+}
+.busy .box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px 22px; box-shadow:var(--shadow); max-width:360px}
+.spin{width:26px; height:26px; border:2.5px solid var(--line); border-top-color:var(--accent); border-radius:50%; margin:0 auto 10px; animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ---------- modal ---------- */
+.modal{position:fixed; inset:0; background:rgba(10,14,12,.55); display:grid; place-items:center; padding:20px; z-index:40}
+.modal .sheet{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:20px; width:min(460px,100%); box-shadow:var(--shadow); max-height:86dvh; overflow:auto}
+.modal h2{font-size:20px; margin-bottom:5px}
+.modal .acts{display:flex; gap:8px; justify-content:flex-end; margin-top:18px}
+.toast{
+  position:fixed; left:50%; bottom:64px; transform:translateX(-50%); background:var(--ink); color:var(--bg);
+  padding:9px 16px; border-radius:999px; font-size:13.5px; z-index:60; box-shadow:var(--shadow); max-width:90vw;
+}
+
+@media (max-width:600px){
+  .brand b{display:none}
+  #deckchip{display:none}
+  header.top{gap:10px; padding:0 10px}
+}
+@media (max-width:860px){
+  main{flex-direction:column}
+  .stagewrap{flex:none; height:46dvh}
+  .side{width:100%; border-left:0; border-top:1px solid var(--line); flex:1; min-height:0}
+  .brand span{display:none}
+  .deckchip{max-width:16ch}
+  .tabs button{padding:6px 9px; font-size:13px}
+  .lib{padding:24px 16px 56px}
+}
+</style>
+
+<div id="app">
+  <header class="top">
+    <div class="brand"><div class="mark"></div><b>Ślepa Tablica</b><span>trener anatomii</span></div>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-view="lib" aria-selected="true">Biblioteka</button>
+      <button role="tab" data-view="edit" aria-selected="false" disabled>Opisz</button>
+      <button role="tab" data-view="quiz" aria-selected="false" disabled>Ucz się</button>
+      <button role="tab" data-view="stats" aria-selected="false" disabled>Postępy</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="deckchip" id="deckchip" hidden><span class="nm"></span><span class="dot"></span><span class="cnt num"></span></div>
+    <button class="iconbtn" id="themebtn" title="Jasny / ciemny motyw" aria-label="Zmień motyw">◐</button>
+  </header>
+
+  <!-- ---------- BIBLIOTEKA ---------- -->
+  <div class="libwrap" id="screen-lib">
+    <div class="lib">
+      <div class="head">
+        <h1>Twoje tablice</h1>
+        <p>Wgraj zdjęcie tablicy z podpisami, zaznacz nazwy — zostaną zakryte, a w ich miejsce wejdą numerowane punkty. Potem odpytuję Cię z każdego z nich.</p>
+      </div>
+
+      <div class="dropzone" id="dropzone">
+        <h3>Wgraj tablicę</h3>
+        <p>Przeciągnij tu zdjęcia, wklej ze schowka (<kbd>Ctrl</kbd>+<kbd>V</kbd>) albo wybierz pliki. Wszystko zostaje na Twoim urządzeniu.</p>
+        <div class="row" style="justify-content:center; flex-wrap:wrap">
+          <button class="btn primary" id="pickbtn">Wybierz zdjęcia</button>
+          <button class="btn" id="importbtn">Wczytaj talię (.json)</button>
+          <button class="btn ghost" id="demobtn">Wypróbuj na przykładzie</button>
+        </div>
+        <input type="file" id="fileinput" accept="image/*" multiple hidden>
+        <input type="file" id="jsoninput" accept="application/json,.json" hidden>
+      </div>
+
+      <div id="decklist"></div>
+    </div>
+  </div>
+
+  <!-- ---------- STÓŁ ROBOCZY ---------- -->
+  <main id="screen-work" hidden>
+    <div class="stagewrap" id="stagewrap">
+      <canvas id="stage"></canvas>
+      <div class="stagebar" id="stagebar"></div>
+      <div class="stagenote" id="stagenote" hidden></div>
+      <div class="busy" id="busy" hidden><div class="box"><div class="spin"></div><div id="busytxt">Pracuję…</div></div></div>
+    </div>
+    <aside class="side" id="side"></aside>
+  </main>
+</div>
+
+<script>
+/* =========================================================================
+   Ślepa Tablica — trener tablic anatomicznych.
+   Wszystko działa lokalnie: obrazy i postępy siedzą w IndexedDB przeglądarki.
+   ========================================================================= */
+"use strict";
+
+/* ---------- drobiazgi ---------- */
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const DAY = 86400000;
+const plural = (n, a, b, c) => n === 1 ? a : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? b : c;
+
+function toast(msg, ms=2600){
+  $$(".toast").forEach(t => t.remove());
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = msg; t.setAttribute("role", "status");
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), ms);
+}
+
+function dialog({title, body, ok="OK", cancel="Anuluj", onOpen}){
+  return new Promise(resolve => {
+    const wrap = document.createElement("div");
+    wrap.className = "modal";
+    wrap.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><h2>${esc(title)}</h2>${body}
+      <div class="acts">${cancel ? `<button class="btn" data-x="0">${esc(cancel)}</button>` : ""}
+      <button class="btn primary" data-x="1">${esc(ok)}</button></div></div>`;
+    const close = v => { wrap.remove(); document.removeEventListener("keydown", key); resolve(v); };
+    const key = e => { if (e.key === "Escape") close(null); };
+    wrap.addEventListener("click", e => {
+      if (e.target === wrap) return close(null);
+      const b = e.target.closest("[data-x]"); if (!b) return;
+      close(b.dataset.x === "1" ? (wrap.__val ? wrap.__val() : true) : null);
+    });
+    wrap.addEventListener("submit", e => { e.preventDefault(); close(wrap.__val ? wrap.__val() : true); });
+    document.addEventListener("keydown", key);
+    document.body.appendChild(wrap);
+    if (onOpen) onOpen(wrap);
+  });
+}
+
+/* ---------- porównywanie odpowiedzi ---------- */
+const ABBR = [
+  [/\bmm\.?\b/g, "musculi"], [/\bm\.?\b/g, "musculus"], [/\baa\.?\b/g, "arteriae"], [/\ba\.?\b/g, "arteria"],
+  [/\bvv\.?\b/g, "venae"], [/\bv\.?\b/g, "vena"], [/\bnn\.?\b/g, "nervi"], [/\bn\.?\b/g, "nervus"],
+  [/\bligg\.?\b/g, "ligamenta"], [/\blig\.?\b/g, "ligamentum"], [/\bart\.?\b/g, "articulatio"],
+  [/\bgl\.?\b/g, "glandula"], [/\bproc\.?\b/g, "processus"], [/\bfor\.?\b/g, "foramen"],
+  [/\brr\.?\b/g, "rami"], [/\br\.?\b/g, "ramus"], [/\bnodi lymph\.?\b/g, "nodi lymphatici"],
+  [/\bmiesien\b/g, "musculus"], [/\bmiesnie\b/g, "musculi"], [/\btetnica\b/g, "arteria"],
+  [/\bzyla\b/g, "vena"], [/\bnerw\b/g, "nervus"], [/\bwiezadlo\b/g, "ligamentum"], [/\bkosc\b/g, "os"],
+];
+function norm(s){
+  let t = String(s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  t = t.replace(/ł/g, "l").replace(/[^a-z0-9.\s-]/g, " ").replace(/\s+/g, " ").trim();
+  for (const [re, rep] of ABBR) t = t.replace(re, rep);
+  return t.replace(/\./g, "").replace(/\s+/g, " ").trim();
+}
+/* "(musculus) biceps brachii; dwugłowy" -> wszystkie dopuszczalne warianty */
+function variants(name){
+  const out = new Set();
+  for (const alt of String(name ?? "").split(/[;|]/)) {
+    const a = alt.trim(); if (!a) continue;
+    const withParens = a.replace(/[()]/g, " ");
+    const without = a.replace(/\([^)]*\)/g, " ");
+    for (const v of [withParens, without]) { const n = norm(v); if (n) out.add(n); }
+  }
+  return [...out];
+}
+function lev(a, b){
+  if (a === b) return 0;
+  if (!a.length || !b.length) return Math.max(a.length, b.length);
+  let prev = Array.from({length: b.length + 1}, (_, i) => i);
+  for (let i = 1; i <= a.length; i++){
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++){
+      cur[j] = Math.min(prev[j] + 1, cur[j-1] + 1, prev[j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
+const sortTokens = s => s.split(" ").filter(Boolean).sort().join(" ");
+/** zwraca "ok" | "near" (literówka) | "bad" */
+function judge(given, name){
+  const g = norm(given);
+  if (!g) return "bad";
+  const vs = variants(name);
+  if (!vs.length) return "bad";
+  if (vs.includes(g)) return "ok";
+  const gs = sortTokens(g);
+  if (vs.some(v => sortTokens(v) === gs)) return "ok";
+  let best = Infinity, ref = "";
+  for (const v of vs){ const d = lev(g, v); if (d < best){ best = d; ref = v; } }
+  const len = Math.max(g.length, ref.length);
+  if (best <= 2 && len >= 6) return "near";
+  if (len && 1 - best / len >= 0.84) return "near";
+  return "bad";
+}
+
+/* ---------- magazyn (IndexedDB) ---------- */
+const DB = (() => {
+  let dbp = null;
+  const open = () => dbp || (dbp = new Promise((res, rej) => {
+    const r = indexedDB.open("slepa-tablica", 1);
+    r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("decks")) r.result.createObjectStore("decks", {keyPath: "id"}); };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  }));
+  const tx = async (mode, fn) => {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const t = db.transaction("decks", mode), st = t.objectStore("decks");
+      let out; const req = fn(st);
+      if (req) req.onsuccess = () => { out = req.result; };
+      t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    });
+  };
+  return {
+    all: () => tx("readonly", st => st.getAll()),
+    get: id => tx("readonly", st => st.get(id)),
+    put: d => tx("readwrite", st => st.put(d)),
+    del: id => tx("readwrite", st => st.delete(id)),
+  };
+})();
+
+/* ---------- stan ---------- */
+const state = {
+  view: "lib",          // lib | edit | quiz | stats
+  decks: [],            // metadane wszystkich talii (bez obrazów w pamięci)
+  deck: null,           // aktualnie otwarta talia
+  img: null,            // HTMLImageElement oryginału
+  masked: null,         // canvas z zakrytymi nazwami
+  sel: null,            // id zaznaczonej etykiety (edytor)
+  reveal: false,        // pokaż oryginał zamiast zakrytej wersji
+  tool: "box",          // box | pan
+  session: null,
+};
+
+function newCard(box){
+  return {id: uid(), box, pin: {x: box.x + box.w / 2, y: box.y + box.h / 2}, name: "", note: "",
+          srs: {box: 1, due: 0, seen: 0, ok: 0, streak: 0, lastMs: 0}};
+}
+const dueCards = deck => deck.cards.filter(c => c.name.trim() && (c.srs.due || 0) <= Date.now());
+const namedCards = deck => deck.cards.filter(c => c.name.trim());
+function deckProgress(deck){
+  const named = namedCards(deck);
+  if (!named.length) return 0;
+  return named.reduce((s, c) => s + clamp((c.srs.box - 1) / 4, 0, 1), 0) / named.length;
+}
+async function saveDeck(){
+  if (!state.deck) return;
+  state.deck.updated = Date.now();
+  await DB.put(state.deck);
+  const i = state.decks.findIndex(d => d.id === state.deck.id);
+  if (i >= 0) state.decks[i] = state.deck;
+}
+
+/* ---------- motyw ---------- */
+(function theme(){
+  const saved = (() => { try { return localStorage.getItem("st-theme"); } catch (e) { return null; } })();
+  if (saved === "dark" || saved === "light") document.documentElement.dataset.theme = saved;
+  $("#themebtn").addEventListener("click", () => {
+    const cur = document.documentElement.dataset.theme
+      || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    const next = cur === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("st-theme", next); } catch {}
+    Stage.draw();
+  });
+})();
+const LS = {
+  get(k, d = null){ try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v){ try { localStorage.setItem(k, v); } catch {} },
+};
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+/* =========================================================================
+   Obraz: wczytanie, zakrywanie podpisów
+   ========================================================================= */
+function loadImage(src){
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => res(im); im.onerror = () => rej(new Error("Nie udało się wczytać obrazu"));
+    im.src = src;
+  });
+}
+const blobToDataURL = b => new Promise((res, rej) => {
+  const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(b);
+});
+async function dataURLToBlob(u){ return (await fetch(u)).blob(); }
+
+/** Zmniejsza wgrane zdjęcie do rozsądnego rozmiaru — talie mają się mieścić w pamięci. */
+async function normalizeImage(file, maxSide = 2400){
+  const url = URL.createObjectURL(file);
+  try {
+    const im = await loadImage(url);
+    const scale = Math.min(1, maxSide / Math.max(im.naturalWidth, im.naturalHeight));
+    if (scale === 1 && file.size < 3.5e6 && /jpe?g|png/i.test(file.type)) return {blob: file, w: im.naturalWidth, h: im.naturalHeight};
+    const c = document.createElement("canvas");
+    c.width = Math.round(im.naturalWidth * scale); c.height = Math.round(im.naturalHeight * scale);
+    const x = c.getContext("2d"); x.imageSmoothingQuality = "high";
+    x.drawImage(im, 0, 0, c.width, c.height);
+    const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.88));
+    return {blob, w: c.width, h: c.height};
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/** Dominujący kolor obwódki wokół prostokąta — czym zamalować podpis.
+    Bierzemy najczęstszy odcień, a nie średnią: litery sąsiednich napisów nie mają wtedy wpływu. */
+function frameColor(data, W, H, x0, y0, x1, y1, pad){
+  const sx = clamp(x0 - pad, 0, W - 1), ex = clamp(x1 + pad, 0, W - 1);
+  const sy = clamp(y0 - pad, 0, H - 1), ey = clamp(y1 + pad, 0, H - 1);
+  const step = Math.max(1, Math.round((ex - sx) / 80));
+  const bins = new Map();
+  for (let y = sy; y <= ey; y += step){
+    for (let x = sx; x <= ex; x += step){
+      if (x > x0 && x < x1 && y > y0 && y < y1) continue;   // tylko obwódka
+      const i = (y * W + x) * 4;
+      const key = (data[i] >> 4) * 289 + (data[i+1] >> 4) * 17 + (data[i+2] >> 4);
+      let bin = bins.get(key);
+      if (!bin) bins.set(key, bin = {r: 0, g: 0, b: 0, n: 0});
+      bin.r += data[i]; bin.g += data[i+1]; bin.b += data[i+2]; bin.n++;
+    }
+  }
+  let best = null;
+  for (const bin of bins.values()) if (!best || bin.n > best.n) best = bin;
+  if (!best) return {color: "#ffffff", grain: 0};
+  const r = Math.round(best.r/best.n), g = Math.round(best.g/best.n), b = Math.round(best.b/best.n);
+  const lum = 0.3*r + 0.59*g + 0.11*b;
+  let sum = 0, n2 = 0;                                   // ziarnistość samego tła (bez liter)
+  for (let y = sy; y <= ey; y += step){
+    for (let x = sx; x <= ex; x += step){
+      if (x > x0 && x < x1 && y > y0 && y < y1) continue;
+      const i = (y * W + x) * 4, l = 0.3*data[i] + 0.59*data[i+1] + 0.11*data[i+2];
+      if (Math.abs(l - lum) > 26) continue;
+      sum += (l - lum) * (l - lum); n2++;
+    }
+  }
+  return {color: `rgb(${r},${g},${b})`, grain: clamp(Math.sqrt(sum / Math.max(1, n2)) * 2.0, 0, 24)};
+}
+
+/** Buduje wersję tablicy z zakrytymi nazwami. */
+function buildMasked(img, deck){
+  const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d", {willReadFrequently: true});
+  x.drawImage(img, 0, 0);
+  if (!deck.cards.length) return c;
+  const full = x.getImageData(0, 0, W, H).data;
+  for (const card of deck.cards){
+    const bx = Math.round(card.box.x * W), by = Math.round(card.box.y * H);
+    const bw = Math.max(2, Math.round(card.box.w * W)), bh = Math.max(2, Math.round(card.box.h * H));
+    const px = Math.round(clamp(bx - bw * 0.02 - 2, 0, W)), py = Math.round(clamp(by - bh * 0.08 - 2, 0, H));
+    const pw = Math.min(W - px, Math.round(bw * 1.04 + 4)), ph = Math.min(H - py, Math.round(bh * 1.16 + 4));
+    if (pw <= 0 || ph <= 0) continue;
+    if (deck.maskStyle === "pixel"){
+      const tw = Math.max(2, Math.round(pw / 14)), th = Math.max(2, Math.round(ph / 14));
+      const t = document.createElement("canvas"); t.width = tw; t.height = th;
+      const tc = t.getContext("2d");
+      tc.drawImage(c, px, py, pw, ph, 0, 0, tw, th);
+      x.imageSmoothingEnabled = false;
+      x.drawImage(t, 0, 0, tw, th, px, py, pw, ph);
+      x.imageSmoothingEnabled = true;
+    } else {
+      const {color, grain} = frameColor(full, W, H, px, py, px + pw, py + ph, Math.max(3, Math.round(ph * 0.35)));
+      x.fillStyle = color;
+      x.fillRect(px, py, pw, ph);
+      if (grain > 3){
+        const id = x.getImageData(px, py, pw, ph), d = id.data;
+        for (let i = 0; i < d.length; i += 4){
+          const n = (Math.random() + Math.random() - 1) * grain;
+          d[i] += n; d[i+1] += n; d[i+2] += n;
+        }
+        x.putImageData(id, px, py);
+      }
+    }
+  }
+  return c;
+}
+function refreshMask(){
+  if (state.img && state.deck) state.masked = buildMasked(state.img, state.deck);
+}
+
+/* =========================================================================
+   Scena — rysowanie tablicy, punktów, obsługa myszy/dotyku
+   ========================================================================= */
+const Stage = {
+  cv: null, ctx: null, view: {s: 1, tx: 0, ty: 0}, ptrs: new Map(), drag: null, space: false,
+  needsFit: false,      // scena bywa jeszcze ukryta przy otwieraniu talii — dopasowujemy przy pierwszym rysowaniu
+  overlay: null,        // funkcja rysująca punkty, ustawiana przez widok
+  onBox: null, onPick: null, onMoved: null,
+  allowBox: false, allowPinDrag: false,
+  hitPins: [],          // [{card, sx, sy, r}] wyliczane przy rysowaniu
+
+  init(){
+    this.cv = $("#stage"); this.ctx = this.cv.getContext("2d");
+    new ResizeObserver(() => this.draw()).observe($("#stagewrap"));
+    this.cv.addEventListener("wheel", e => {
+      if (!state.masked) return;
+      e.preventDefault();
+      this.zoomAt(e.offsetX, e.offsetY, Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0016)));
+    }, {passive: false});
+    this.cv.addEventListener("pointerdown", e => this.down(e));
+    this.cv.addEventListener("pointermove", e => this.move(e));
+    for (const ev of ["pointerup", "pointercancel", "pointerleave"]) this.cv.addEventListener(ev, e => this.up(e));
+    addEventListener("keydown", e => { if (e.code === "Space" && !/input|textarea/i.test(e.target.tagName)) { this.space = true; e.preventDefault(); } });
+    addEventListener("keyup", e => { if (e.code === "Space") this.space = false; });
+  },
+
+  size(){ const r = this.cv.getBoundingClientRect(); return {w: r.width || 1, h: r.height || 1}; },
+  imgW(){ return state.masked ? state.masked.width : 1; },
+  imgH(){ return state.masked ? state.masked.height : 1; },
+  toScreen(nx, ny){ const v = this.view; return {x: nx * this.imgW() * v.s + v.tx, y: ny * this.imgH() * v.s + v.ty}; },
+  toImage(sx, sy){ const v = this.view; return {x: (sx - v.tx) / (v.s * this.imgW()), y: (sy - v.ty) / (v.s * this.imgH())}; },
+  /* pasek narzędzi i podpowiedź zasłaniają brzegi sceny — dopasowanie ich omija */
+  inset(){ const {w, h} = this.size(); return {t: h > 320 ? 58 : 8, b: h > 320 ? 46 : 8, x: 8}; },
+  fitScale(){
+    const {w, h} = this.size(), i = this.inset();
+    return Math.min((w - i.x * 2) / this.imgW(), (h - i.t - i.b) / this.imgH()) * 0.98;
+  },
+  fit(animate){
+    const {w, h} = this.size(), s = this.fitScale(), i = this.inset();
+    this.setView({s, tx: (w - this.imgW() * s) / 2, ty: i.t + (h - i.t - i.b - this.imgH() * s) / 2}, animate);
+  },
+  zoomAt(sx, sy, k){
+    const v = this.view, s = clamp(v.s * k, this.fitScale() * 0.5, this.fitScale() * 14);
+    const f = s / v.s;
+    this.setView({s, tx: sx - (sx - v.tx) * f, ty: sy - (sy - v.ty) * f});
+  },
+  /** Wyśrodkowuje punkt i przybliża tak, by dało się na niego patrzeć. */
+  focus(nx, ny, mult = 2.6, animate = true){
+    const {w, h} = this.size();
+    if (w < 560) mult *= 0.72;
+    const s = clamp(this.fitScale() * mult, 0, this.fitScale() * 14);
+    this.setView({s, tx: w / 2 - nx * this.imgW() * s, ty: h / 2 - ny * this.imgH() * s}, animate);
+  },
+  setView(v, animate){
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    cancelAnimationFrame(this._raf);
+    if (!animate || reduce){ this.view = v; return this.draw(); }
+    const from = {...this.view}, t0 = performance.now(), dur = 280;
+    const step = now => {
+      const p = clamp((now - t0) / dur, 0, 1), e = p < .5 ? 2*p*p : 1 - Math.pow(-2*p + 2, 2)/2;
+      this.view = {s: from.s + (v.s - from.s) * e, tx: from.tx + (v.tx - from.tx) * e, ty: from.ty + (v.ty - from.ty) * e};
+      this.draw();
+      if (p < 1) this._raf = requestAnimationFrame(step);
+    };
+    this._raf = requestAnimationFrame(step);
+  },
+
+  draw(){
+    const cv = this.cv; if (!cv) return;
+    const dpr = Math.min(devicePixelRatio || 1, 2.5), {w, h} = this.size();
+    if (this.needsFit && w > 4 && h > 4 && state.masked){ this.needsFit = false; return this.fit(false); }
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)){ cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    const x = this.ctx;
+    x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    x.fillStyle = css("--stage"); x.fillRect(0, 0, w, h);
+    const src = state.reveal && state.img ? state.img : state.masked;
+    if (!src) return;
+    const v = this.view;
+    x.imageSmoothingQuality = "high";
+    x.drawImage(src, 0, 0, this.imgW(), this.imgH(), v.tx, v.ty, this.imgW() * v.s, this.imgH() * v.s);
+    this.hitPins = [];
+    if (this.overlay) this.overlay(x);
+    if (this.drag && this.drag.kind === "box" && this.drag.cur){
+      const a = this.toScreen(this.drag.start.x, this.drag.start.y), b = this.toScreen(this.drag.cur.x, this.drag.cur.y);
+      x.save();
+      x.setLineDash([5, 4]); x.lineWidth = 1.5; x.strokeStyle = css("--accent");
+      x.fillStyle = css("--accent") + "22";
+      x.fillRect(a.x, a.y, b.x - a.x, b.y - a.y); x.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
+      x.restore();
+    }
+  },
+
+  /** Rysuje punkt i rejestruje go do trafiania kliknięciem. */
+  pin(x, card, {label = "", tone = "accent", r = 15, ghost = false, ring = false} = {}){
+    const p = this.toScreen(card.pin.x, card.pin.y);
+    const color = css("--" + tone);
+    x.save();
+    if (ring){
+      x.beginPath(); x.arc(p.x, p.y, r + 8, 0, 7); x.strokeStyle = color; x.globalAlpha = .35; x.lineWidth = 2; x.stroke(); x.globalAlpha = 1;
+    }
+    x.beginPath(); x.arc(p.x, p.y, r, 0, 7);
+    x.fillStyle = ghost ? "transparent" : color;
+    x.globalAlpha = ghost ? .5 : 1;
+    x.fill();
+    x.lineWidth = 2; x.strokeStyle = ghost ? color : css("--surface"); x.stroke();
+    x.globalAlpha = 1;
+    if (label && !ghost){
+      x.fillStyle = tone === "accent" ? css("--accent-ink") : css("--surface");
+      x.font = `600 ${Math.round(r * 0.86)}px "IBM Plex Mono", monospace`;
+      x.textAlign = "center"; x.textBaseline = "middle";
+      x.fillText(label, p.x, p.y + 0.5);
+    }
+    x.restore();
+    this.hitPins.push({card, sx: p.x, sy: p.y, r: Math.max(r, 14) + 4});
+  },
+  box(x, card, tone = "line-strong"){
+    const a = this.toScreen(card.box.x, card.box.y), b = this.toScreen(card.box.x + card.box.w, card.box.y + card.box.h);
+    x.save(); x.setLineDash([4, 3]); x.lineWidth = 1.25; x.strokeStyle = css("--" + tone);
+    x.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y); x.restore();
+  },
+  hit(sx, sy){
+    let best = null, bd = Infinity;
+    for (const p of this.hitPins){
+      const d = Math.hypot(p.sx - sx, p.sy - sy);
+      if (d <= p.r && d < bd){ bd = d; best = p; }
+    }
+    return best;
+  },
+
+  down(e){
+    if (!state.masked) return;
+    this.cv.setPointerCapture(e.pointerId);
+    this.ptrs.set(e.pointerId, {x: e.offsetX, y: e.offsetY});
+    if (this.ptrs.size === 2){ this.drag = {kind: "pinch", d: this.ptrDist(), s: this.view.s}; return; }
+    const hit = this.hit(e.offsetX, e.offsetY);
+    const wantsPan = e.button === 1 || this.space || state.tool === "pan";
+    if (hit && !wantsPan){
+      if (this.allowPinDrag && (state.sel === hit.card.id || !this.allowBox)){
+        this.drag = {kind: "pin", card: hit.card, moved: false};
+      } else this.drag = {kind: "tap", card: hit.card};
+      if (this.onPick) this.onPick(hit.card);
+      return;
+    }
+    if (this.allowBox && !wantsPan && e.button === 0){
+      this.drag = {kind: "box", start: this.toImage(e.offsetX, e.offsetY), cur: null};
+      return;
+    }
+    this.drag = {kind: "pan", x: e.offsetX, y: e.offsetY, tx: this.view.tx, ty: this.view.ty};
+  },
+  ptrDist(){ const [a, b] = [...this.ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y) || 1; },
+  move(e){
+    if (!this.drag) return;
+    if (this.ptrs.has(e.pointerId)) this.ptrs.set(e.pointerId, {x: e.offsetX, y: e.offsetY});
+    const d = this.drag;
+    if (d.kind === "pinch" && this.ptrs.size === 2){
+      const [a, b] = [...this.ptrs.values()];
+      this.zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, this.ptrDist() / d.d * (d.s / this.view.s));
+      return;
+    }
+    if (d.kind === "pan"){ this.view.tx = d.tx + e.offsetX - d.x; this.view.ty = d.ty + e.offsetY - d.y; return this.draw(); }
+    if (d.kind === "box"){ d.cur = this.toImage(e.offsetX, e.offsetY); return this.draw(); }
+    if (d.kind === "pin"){
+      const p = this.toImage(e.offsetX, e.offsetY);
+      d.card.pin = {x: clamp(p.x, 0, 1), y: clamp(p.y, 0, 1)}; d.moved = true; return this.draw();
+    }
+  },
+  up(e){
+    this.ptrs.delete(e.pointerId);
+    const d = this.drag;
+    if (!d) return;
+    if (d.kind === "pinch" && this.ptrs.size < 2){ this.drag = null; return; }
+    if (this.ptrs.size) return;
+    this.drag = null;
+    if (d.kind === "box" && d.cur){
+      const x = Math.min(d.start.x, d.cur.x), y = Math.min(d.start.y, d.cur.y);
+      const w = Math.abs(d.cur.x - d.start.x), h = Math.abs(d.cur.y - d.start.y);
+      if (w * this.imgW() > 8 && h * this.imgH() > 6 && this.onBox){
+        this.onBox({x: clamp(x, 0, 1), y: clamp(y, 0, 1), w: Math.min(w, 1 - x), h: Math.min(h, 1 - y)});
+      } else this.draw();
+      return;
+    }
+    if (d.kind === "pin" && d.moved && this.onMoved) this.onMoved(d.card);
+    this.draw();
+  },
+};
+
+/* =========================================================================
+   Nawigacja
+   ========================================================================= */
+function updateChip(){
+  const chip = $("#deckchip");
+  chip.hidden = !state.deck;
+  if (!state.deck) return;
+  $(".nm", chip).textContent = state.deck.name;
+  const n = namedCards(state.deck).length;
+  $(".cnt", chip).textContent = `${n} ${plural(n, "nazwa", "nazwy", "nazw")}`;
+}
+function setBusy(on, txt = "Pracuję…"){ $("#busytxt").textContent = txt; $("#busy").hidden = !on; }
+$("#busy").addEventListener("click", () => setBusy(false));   // gdyby coś się zacięło
+function note(txt){ const n = $("#stagenote"); n.hidden = !txt; n.textContent = txt || ""; }
+
+async function go(view){
+  if (view !== "lib" && !state.deck) view = "lib";
+  state.view = view;
+  $$(".tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.view === view)));
+  $$(".tabs button").forEach(b => { b.disabled = b.dataset.view !== "lib" && !state.deck; });
+  $("#screen-lib").hidden = view !== "lib";
+  $("#screen-work").hidden = view === "lib";
+  updateChip();
+  state.reveal = false;
+  Stage.overlay = null; Stage.onBox = null; Stage.onPick = null; Stage.onMoved = null;
+  Stage.allowBox = false; Stage.allowPinDrag = false;
+  $("#stagebar").innerHTML = ""; note("");
+  if (view === "lib"){ await renderLibrary(); return; }
+  if (view === "edit") renderEditor();
+  if (view === "quiz") renderQuizSetup();
+  if (view === "stats") renderStats();
+}
+$$(".tabs button").forEach(b => b.addEventListener("click", () => go(b.dataset.view)));
+
+/* =========================================================================
+   Biblioteka
+   ========================================================================= */
+function makeThumb(){
+  if (!state.masked) return "";
+  const w = 440, h = Math.round(state.masked.height * w / state.masked.width);
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const x = c.getContext("2d"); x.imageSmoothingQuality = "high";
+  x.drawImage(state.masked, 0, 0, w, h);
+  return c.toDataURL("image/jpeg", 0.72);
+}
+
+async function renderLibrary(){
+  state.decks = (await DB.all()).sort((a, b) => b.updated - a.updated);
+  const list = $("#decklist");
+  if (!state.decks.length){
+    list.innerHTML = `<div class="empty-state" style="padding:38px 0">
+      Nie masz jeszcze żadnej tablicy. Wgraj zdjęcie z atlasu albo zacznij od przykładu.</div>`;
+    return;
+  }
+  const totalDue = state.decks.reduce((s, d) => s + dueCards(d).length, 0);
+  list.innerHTML = `
+    <div class="row" style="justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px">
+      <h2 style="font-size:16px">Talie <span class="num" style="color:var(--muted)">(${state.decks.length})</span></h2>
+      ${totalDue ? `<span class="pill due">${totalDue} do powtórki</span>` : `<span class="pill ok">wszystko powtórzone</span>`}
+    </div>
+    <div class="grid">${state.decks.map(deckCard).join("")}</div>`;
+}
+function deckCard(d){
+  const named = d.cards.filter(c => c.name.trim()).length;
+  const due = d.cards.filter(c => c.name.trim() && (c.srs.due || 0) <= Date.now()).length;
+  const prog = Math.round(deckProgress(d) * 100);
+  return `<article class="card">
+    <button class="thumb" data-open="${d.id}" title="Otwórz">${d.thumb ? `<img src="${d.thumb}" alt="">` : ""}</button>
+    <div class="body">
+      <h3>${esc(d.name)}</h3>
+      <div class="meta">
+        <span class="num">${named}/${d.cards.length}</span><span>opisanych</span>
+        <span class="dot"></span>
+        ${due ? `<span class="pill due">${due} do powtórki</span>` : (named ? `<span class="pill ok">na dziś gotowe</span>` : `<span class="pill">brak nazw</span>`)}
+      </div>
+      <div class="bar" title="Opanowanie ${prog}%"><i style="width:${prog}%"></i></div>
+      <div class="cardacts">
+        <button class="btn small primary" data-learn="${d.id}" ${named ? "" : "disabled"}>Ucz się</button>
+        <button class="btn small" data-edit="${d.id}">Opisz</button>
+        <span style="flex:1"></span>
+        <button class="btn ghost small" data-export="${d.id}" title="Zapisz talię do pliku">⤓</button>
+        <button class="btn ghost small" data-del="${d.id}" title="Usuń talię">✕</button>
+      </div>
+    </div>
+  </article>`;
+}
+
+$("#decklist").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-open],button[data-learn],button[data-edit],button[data-export],button[data-del]");
+  if (!b) return;
+  const {open, learn, edit, export: exp, del} = b.dataset;
+  if (open || edit) { await openDeck(open || edit); await go("edit"); }
+  else if (learn) { await openDeck(learn); await go("quiz"); }
+  else if (exp) await exportDeck(exp);
+  else if (del) {
+    const d = state.decks.find(x => x.id === del);
+    const yes = await dialog({title: "Usunąć talię?", ok: "Usuń", body:
+      `<p class="hint">„${esc(d.name)}” zniknie razem ze zdjęciem i postępami. Tego nie da się cofnąć — jeśli chcesz zachować talię, najpierw zapisz ją do pliku.</p>`});
+    if (yes){ await DB.del(del); if (state.deck?.id === del) state.deck = null; toast("Talia usunięta"); await renderLibrary(); }
+  }
+});
+
+async function openDeck(id){
+  setBusy(true, "Otwieram tablicę…");
+  try {
+    const deck = await DB.get(id);
+    if (!deck) { toast("Nie znalazłem tej talii"); return; }
+    const url = URL.createObjectURL(deck.image);
+    try { state.img = await loadImage(url); } finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
+    state.deck = deck; state.sel = null; state.session = null;
+    refreshMask();
+    Stage.needsFit = true;
+  } finally { setBusy(false); }
+}
+
+/* ---------- dodawanie tablic ---------- */
+async function addImages(files){
+  const imgs = [...files].filter(f => /^image\//.test(f.type));
+  if (!imgs.length) { toast("To nie są pliki graficzne"); return; }
+  setBusy(true, "Przygotowuję zdjęcia…");
+  let last = null;
+  try {
+    for (const f of imgs){
+      const {blob, w, h} = await normalizeImage(f);
+      const deck = {
+        id: uid(), name: f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").slice(0, 80) || "Tablica",
+        created: Date.now(), updated: Date.now(), w, h, image: blob, thumb: "", maskStyle: "solid", cards: [],
+      };
+      const url = URL.createObjectURL(blob);
+      const im = await loadImage(url); URL.revokeObjectURL(url);
+      state.img = im; state.deck = deck; refreshMask();
+      deck.thumb = makeThumb();
+      await DB.put(deck);
+      last = deck;
+    }
+  } catch (err){ console.error(err); toast("Nie udało się wczytać: " + err.message); }
+  finally { setBusy(false); }
+  if (last){
+    await openDeck(last.id);
+    await go("edit");
+    toast(imgs.length > 1 ? `Dodano ${imgs.length} tablice — zacznij od tej` : "Tablica dodana — zaznacz pierwszą nazwę");
+  }
+}
+
+$("#pickbtn").addEventListener("click", () => $("#fileinput").click());
+$("#fileinput").addEventListener("change", e => { addImages(e.target.files); e.target.value = ""; });
+$("#importbtn").addEventListener("click", () => $("#jsoninput").click());
+$("#jsoninput").addEventListener("change", e => { importDeck(e.target.files[0]); e.target.value = ""; });
+$("#demobtn").addEventListener("click", () => makeDemoDeck());
+
+const dz = $("#dropzone");
+["dragenter", "dragover"].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add("hot"); }));
+["dragleave", "drop"].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove("hot"); }));
+document.addEventListener("dragover", e => e.preventDefault());
+document.addEventListener("drop", e => {
+  e.preventDefault();
+  if (state.view !== "lib" || !e.dataTransfer.files.length) return;
+  const json = [...e.dataTransfer.files].find(f => /json$/i.test(f.name));
+  json ? importDeck(json) : addImages(e.dataTransfer.files);
+});
+document.addEventListener("paste", e => {
+  if (state.view !== "lib") return;
+  const files = [...(e.clipboardData?.files || [])];
+  if (files.length) addImages(files);
+});
+
+/* ---------- zapis i wczytywanie talii ---------- */
+async function exportDeck(id){
+  const deck = await DB.get(id);
+  if (!deck) return;
+  const payload = {app: "slepa-tablica", version: 1, deck: {...deck, image: await blobToDataURL(deck.image)}};
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(payload)], {type: "application/json"}));
+  a.download = deck.name.replace(/[^\w\sąćęłńóśźż-]+/gi, "").trim().replace(/\s+/g, "-").toLowerCase() + ".json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast("Talia zapisana do pliku");
+}
+async function importDeck(file){
+  if (!file) return;
+  setBusy(true, "Wczytuję talię…");
+  try {
+    const data = JSON.parse(await file.text());
+    const d = data.deck || data;
+    if (!d || !d.image || !Array.isArray(d.cards)) throw new Error("plik nie wygląda na talię Ślepej Tablicy");
+    d.id = uid(); d.updated = Date.now(); d.created = d.created || Date.now();
+    d.image = await dataURLToBlob(d.image);
+    d.maskStyle = d.maskStyle || "solid";
+    for (const c of d.cards){ c.srs = c.srs || {box: 1, due: 0, seen: 0, ok: 0, streak: 0, lastMs: 0}; c.note = c.note || ""; }
+    await DB.put(d);
+    await renderLibrary();
+    toast(`Wczytano „${d.name}”`);
+  } catch (err){ toast("Nie udało się wczytać pliku: " + err.message); }
+  finally { setBusy(false); }
+}
+async function exportBlindPNG(){
+  if (!state.masked) return;
+  const c = document.createElement("canvas");
+  c.width = state.masked.width; c.height = state.masked.height;
+  const x = c.getContext("2d");
+  x.drawImage(state.masked, 0, 0);
+  const r = Math.max(14, Math.round(c.width / 62));
+  state.deck.cards.forEach((card, i) => {
+    const px = card.pin.x * c.width, py = card.pin.y * c.height;
+    x.beginPath(); x.arc(px, py, r, 0, 7);
+    x.fillStyle = "#97293A"; x.fill(); x.lineWidth = r * 0.16; x.strokeStyle = "#fff"; x.stroke();
+    x.fillStyle = "#fff"; x.font = `600 ${Math.round(r * 1.1)}px "IBM Plex Mono", monospace`;
+    x.textAlign = "center"; x.textBaseline = "middle";
+    x.fillText(String(i + 1), px, py + r * 0.04);
+  });
+  const blob = await new Promise(r2 => c.toBlob(r2, "image/png"));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "slepa-" + state.deck.name.replace(/\s+/g, "-").toLowerCase() + ".png";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast("Ślepa tablica zapisana jako PNG");
+}
+
+/* =========================================================================
+   Edytor — zaznaczanie i podpisywanie nazw
+   ========================================================================= */
+let saveTimer = null;
+function autosave(remask){
+  if (remask) refreshMask();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    if (!state.deck) return;
+    state.deck.thumb = makeThumb();
+    updateChip();
+    await saveDeck();
+  }, 400);
+}
+
+function renderEditor(){
+  const deck = state.deck;
+  Stage.allowBox = true; Stage.allowPinDrag = true;
+  Stage.onBox = box => {
+    const card = newCard(box);
+    deck.cards.push(card); state.sel = card.id;
+    autosave(true); renderEditor();
+    setTimeout(() => { const i = $("#nameinput"); if (i){ i.focus(); i.select(); } }, 30);
+  };
+  Stage.onPick = card => { state.sel = card.id; renderEditor(); };
+  Stage.onMoved = () => autosave(false);
+  Stage.overlay = x => {
+    deck.cards.forEach((c, i) => {
+      const sel = c.id === state.sel;
+      if (!state.reveal) Stage.box(x, c, sel ? "accent" : "line-strong");
+      Stage.pin(x, c, {label: String(i + 1), tone: sel ? "accent" : "cool", r: sel ? 17 : 14, ring: sel});
+    });
+  };
+
+  $("#stagebar").innerHTML = `
+    <button class="toggle" data-tool="box" aria-pressed="${state.tool === "box"}" title="Przeciągnij po nazwie, żeby ją zakryć">▭ Zaznacz</button>
+    <button class="toggle" data-tool="pan" aria-pressed="${state.tool === "pan"}" title="Przesuwaj tablicę">✥ Przesuń</button>
+    <span class="sepv"></span>
+    <button class="toggle" data-z="in" title="Przybliż">+</button>
+    <button class="toggle" data-z="out" title="Oddal">−</button>
+    <button class="toggle" data-z="fit" title="Dopasuj do ekranu">⤢</button>
+    <span class="sepv"></span>
+    <button class="toggle" data-reveal aria-pressed="${state.reveal}" title="Podejrzyj oryginał z podpisami">👁 Oryginał</button>
+    <button class="toggle" data-mask title="Sposób zakrywania podpisów">${deck.maskStyle === "pixel" ? "▦ Piksele" : "▪ Kolor tła"}</button>
+    <button class="toggle" data-ocr title="Spróbuj odczytać podpisy automatycznie">⌁ Rozpoznaj podpisy</button>`;
+  note(deck.cards.length ? "Przeciągnij po podpisie, żeby go zakryć · punkt przesuniesz ciągnąc go myszą" : "Przeciągnij myszą po pierwszym podpisie na tablicy");
+
+  const sel = deck.cards.find(c => c.id === state.sel);
+  const idx = deck.cards.findIndex(c => c.id === state.sel);
+  $("#side").innerHTML = `
+    <div class="pad" style="border-bottom:1px solid var(--line)">
+      <div class="eyebrow" style="margin-bottom:7px">Tablica</div>
+      <input type="text" id="deckname" value="${esc(deck.name)}" aria-label="Nazwa tablicy">
+      ${sel ? `
+        <hr class="sep">
+        <div class="row" style="justify-content:space-between; margin-bottom:8px">
+          <div class="eyebrow">Punkt <span class="num">${idx + 1}</span></div>
+          <button class="btn ghost small" id="delcard">Usuń punkt</button>
+        </div>
+        <label class="fld"><span class="lbl">Prawidłowa nazwa</span>
+          <input type="text" id="nameinput" value="${esc(sel.name)}" placeholder="np. musculus biceps brachii" autocomplete="off" spellcheck="false"></label>
+        <label class="fld"><span class="lbl">Notatka (widoczna po odpowiedzi)</span>
+          <input type="text" id="noteinput" value="${esc(sel.note)}" placeholder="np. unerwienie, czynność" autocomplete="off"></label>
+        <p class="hint">Kilka poprawnych wersji rozdziel średnikiem: <span class="lat">biceps brachii; mięsień dwugłowy ramienia</span>.
+        Część w nawiasie jest nieobowiązkowa: <span class="lat">(musculus) deltoideus</span>. Skróty <span class="lat">m.</span>, <span class="lat">a.</span>, <span class="lat">n.</span> rozpoznaję sam.</p>
+        <div class="row"><button class="btn primary" id="savecard">Zapisz <kbd>↵</kbd></button>
+        <button class="btn" id="nextcard">Następny punkt</button></div>
+      ` : `<p class="hint" style="margin:12px 0 0">Zaznacz na tablicy prostokąt obejmujący podpis. Zakryję go i postawię tam numerowany punkt, a Ty wpiszesz, co się pod nim kryje.</p>`}
+    </div>
+    <div class="scroll" id="cardlist">
+      <div class="pad" style="padding-bottom:4px">
+        <div class="row" style="justify-content:space-between">
+          <span class="eyebrow">Punkty (${deck.cards.length})</span>
+          <span class="hint">${namedCards(deck).length} opisanych</span>
+        </div>
+      </div>
+      <div style="padding:0 10px 14px">
+        ${deck.cards.length ? deck.cards.map((c, i) => `
+          <div class="lab ${c.id === state.sel ? "sel" : ""}" data-card="${c.id}">
+            <span class="idx num">${i + 1}</span>
+            <span class="txt ${c.name.trim() ? "" : "empty"}">${c.name.trim() ? `<span class="lat">${esc(c.name)}</span>` : "bez nazwy"}
+              ${c.note ? `<span class="alt">${esc(c.note)}</span>` : ""}</span>
+            <button class="del" data-delcard="${c.id}" title="Usuń" aria-label="Usuń punkt ${i + 1}">✕</button>
+          </div>`).join("") : `<div class="empty-state">Nie ma jeszcze żadnych punktów.</div>`}
+      </div>
+    </div>
+    <div class="pad" style="border-top:1px solid var(--line); display:flex; gap:8px">
+      <button class="btn primary" id="tolearn" ${namedCards(deck).length ? "" : "disabled"} style="flex:1">Ucz się (${namedCards(deck).length})</button>
+      <button class="btn" id="blindpng" title="Zapisz ślepą tablicę jako obrazek">⤓ PNG</button>
+    </div>`;
+
+  $("#deckname").addEventListener("change", e => { deck.name = e.target.value.trim() || "Tablica"; autosave(false); go("edit"); });
+  const nameIn = $("#nameinput");
+  if (nameIn){
+    const commit = () => { sel.name = nameIn.value.trim(); sel.note = $("#noteinput").value.trim(); autosave(false); };
+    nameIn.addEventListener("input", () => { sel.name = nameIn.value; });
+    nameIn.addEventListener("keydown", e => {
+      if (e.key === "Enter"){ e.preventDefault(); commit(); renderEditor(); toast(sel.name ? "Zapisane" : "Punkt bez nazwy — nie wejdzie do nauki"); }
+      if (e.key === "Escape"){ nameIn.blur(); }
+    });
+    $("#noteinput").addEventListener("change", commit);
+    $("#savecard").addEventListener("click", () => { commit(); renderEditor(); });
+    $("#nextcard").addEventListener("click", () => {
+      commit();
+      const next = deck.cards[(idx + 1) % deck.cards.length];
+      state.sel = next ? next.id : null; renderEditor();
+      setTimeout(() => $("#nameinput")?.focus(), 30);
+    });
+    $("#delcard").addEventListener("click", () => removeCard(sel.id));
+  }
+  $("#cardlist").addEventListener("click", e => {
+    const del = e.target.closest("[data-delcard]");
+    if (del) return removeCard(del.dataset.delcard);
+    const row = e.target.closest("[data-card]");
+    if (!row) return;
+    state.sel = row.dataset.card;
+    const c = deck.cards.find(x => x.id === state.sel);
+    renderEditor();
+    if (c) Stage.focus(c.pin.x, c.pin.y, 2.4);
+    setTimeout(() => $("#nameinput")?.focus(), 30);
+  });
+  $("#tolearn").addEventListener("click", () => go("quiz"));
+  $("#blindpng").addEventListener("click", exportBlindPNG);
+
+  $("#stagebar").onclick = async e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.tool){ state.tool = b.dataset.tool; renderEditor(); }
+    else if (b.dataset.z === "in") Stage.zoomAt(Stage.size().w / 2, Stage.size().h / 2, 1.35);
+    else if (b.dataset.z === "out") Stage.zoomAt(Stage.size().w / 2, Stage.size().h / 2, 1 / 1.35);
+    else if (b.dataset.z === "fit") Stage.fit(true);
+    else if ("reveal" in b.dataset){ state.reveal = !state.reveal; renderEditor(); }
+    else if ("mask" in b.dataset){ deck.maskStyle = deck.maskStyle === "pixel" ? "solid" : "pixel"; autosave(true); renderEditor(); }
+    else if ("ocr" in b.dataset) runOCR();
+  };
+  Stage.draw();
+}
+
+function removeCard(id){
+  const deck = state.deck;
+  deck.cards = deck.cards.filter(c => c.id !== id);
+  if (state.sel === id) state.sel = null;
+  autosave(true); renderEditor();
+}
+addEventListener("keydown", e => {
+  if (state.view !== "edit" || !state.sel) return;
+  if (/input|textarea/i.test(e.target.tagName)) return;
+  if (e.key === "Delete" || e.key === "Backspace"){ e.preventDefault(); removeCard(state.sel); }
+  if (e.key === "Escape"){ state.sel = null; renderEditor(); }
+});
+
+/* =========================================================================
+   Nauka
+   ========================================================================= */
+const INTERVALS = [0, 1, 3, 7, 21];   // dni dla pudełek 1..5
+function applySRS(card, verdict){
+  const s = card.srs;
+  s.seen++; s.lastMs = Date.now();
+  if (verdict === "ok"){ s.ok++; s.streak++; s.box = clamp(s.box + 1, 1, 5); }
+  else if (verdict === "near"){ s.ok++; s.streak++; s.box = clamp(s.box, 1, 5); }
+  else { s.streak = 0; s.box = 1; }
+  s.due = Date.now() + INTERVALS[s.box - 1] * DAY;
+}
+const MODES = {
+  type:   {name: "Wpisz nazwę", desc: "Pokazuję punkt, Ty piszesz — najbliżej egzaminu."},
+  choice: {name: "Wybierz z listy", desc: "Cztery odpowiedzi do wyboru. Dobre na pierwszy przebieg."},
+  point:  {name: "Wskaż na tablicy", desc: "Podaję nazwę, Ty klikasz właściwy punkt."},
+};
+
+function renderQuizSetup(){
+  const deck = state.deck, named = namedCards(deck), due = dueCards(deck);
+  state.session = null;
+  Stage.allowBox = false; Stage.allowPinDrag = false; Stage.onBox = null; Stage.onPick = null;
+  Stage.overlay = x => deck.cards.forEach((c, i) => { if (c.name.trim()) Stage.pin(x, c, {label: String(i + 1), tone: "cool", r: 13}); });
+  Stage.fit(true);
+  $("#stagebar").innerHTML = `<button class="toggle" data-reveal aria-pressed="${state.reveal}">👁 Oryginał</button>
+    <button class="toggle" data-z="fit">⤢ Dopasuj</button>`;
+  $("#stagebar").onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if ("reveal" in b.dataset){ state.reveal = !state.reveal; renderQuizSetup(); }
+    else Stage.fit(true);
+  };
+  note(named.length ? "" : "Ta tablica nie ma jeszcze podpisanych punktów");
+
+  const mode = LS.get("st-mode", "type");
+  $("#side").innerHTML = `
+    <div class="scroll"><div class="pad">
+      <div class="eyebrow" style="margin-bottom:8px">Sesja</div>
+      <h2 style="font-size:19px; margin-bottom:4px">${esc(deck.name)}</h2>
+      <p class="hint" style="margin:0 0 16px">${named.length} ${plural(named.length, "punkt", "punkty", "punktów")} do nauki${due.length ? ` · <b style="color:var(--accent)">${due.length} czeka na powtórkę</b>` : " · wszystko powtórzone na dziś"}</p>
+      <div class="eyebrow" style="margin-bottom:8px">Tryb</div>
+      <div class="choices" id="modes">
+        ${Object.entries(MODES).map(([k, m]) => `
+          <button class="choice" data-mode="${k}" style="font-family:'IBM Plex Sans',sans-serif; font-style:normal ${k === mode ? ";border-color:var(--accent);background:var(--accent-soft)" : ""}">
+            <b style="font-size:14.5px">${m.name}</b><br><span class="hint">${m.desc}</span>
+          </button>`).join("")}
+      </div>
+      <hr class="sep">
+      <label class="fld"><span class="lbl">Zakres</span>
+        <select id="scope">
+          <option value="due"${due.length ? "" : " disabled"}>Do powtórki dziś (${due.length})</option>
+          <option value="all" ${due.length ? "" : "selected"}>Wszystkie punkty (${named.length})</option>
+          <option value="hard">Najsłabiej opanowane</option>
+        </select></label>
+      <label class="fld"><span class="lbl">Ile pytań</span>
+        <select id="count"><option value="10">10</option><option value="20" selected>20</option><option value="0">ile się da</option></select></label>
+      <button class="btn primary wide" id="startbtn" ${named.length ? "" : "disabled"}>Zaczynamy</button>
+      <p class="hint" style="margin-top:12px">Odpowiedzi sprawdzam z przymrużeniem oka: literówka lub inna kolejność słów przechodzi, ale pokażę Ci prawidłową pisownię.</p>
+    </div></div>`;
+
+  $("#modes").addEventListener("click", e => {
+    const b = e.target.closest("[data-mode]"); if (!b) return;
+    LS.set("st-mode", b.dataset.mode); renderQuizSetup();
+  });
+  $("#startbtn").addEventListener("click", () => {
+    const scope = $("#scope").value, n = +$("#count").value;
+    let pool = scope === "due" ? dueCards(deck) : named.slice();
+    if (scope === "hard") pool = named.slice().sort((a, b) => (a.srs.box - b.srs.box) || (b.srs.seen - a.srs.seen));
+    if (!pool.length) pool = named.slice();
+    if (scope !== "hard") pool.sort(() => Math.random() - 0.5);
+    if (n) pool = pool.slice(0, n);
+    if (scope === "hard") pool.sort(() => Math.random() - 0.5);
+    startSession(LS.get("st-mode", "type"), pool.map(c => c.id));
+  });
+}
+
+function startSession(mode, ids){
+  state.session = {mode, ids, i: 0, phase: "ask", results: [], given: "", verdict: null, pick: null, choices: null};
+  renderQuiz();
+}
+const curCard = () => state.deck.cards.find(c => c.id === state.session.ids[state.session.i]);
+
+function buildChoices(card){
+  const others = namedCards(state.deck).filter(c => c.id !== card.id).sort(() => Math.random() - 0.5).slice(0, 3);
+  return [card, ...others].sort(() => Math.random() - 0.5);
+}
+
+function renderQuiz(){
+  const s = state.session;
+  if (!s) return renderQuizSetup();
+  if (s.i >= s.ids.length) return renderSummary();
+  const deck = state.deck, card = curCard();
+  if (!card){ s.i++; return renderQuiz(); }
+  const num = deck.cards.findIndex(c => c.id === card.id) + 1;
+  const answered = s.phase === "feedback";
+
+  /* --- scena --- */
+  Stage.allowBox = false; Stage.allowPinDrag = false; Stage.onBox = null;
+  if (s.mode === "point"){
+    Stage.onPick = c => { if (s.phase === "ask") answerPoint(c); };
+    Stage.overlay = x => deck.cards.forEach((c, i) => {
+      if (!c.name.trim()) return;
+      let tone = "cool", ring = false;
+      if (answered){
+        if (c.id === card.id){ tone = "ok"; ring = true; }
+        else if (c.id === s.pick) tone = "accent";
+      }
+      Stage.pin(x, c, {label: answered && c.id === card.id ? "✓" : String(i + 1), tone, r: 14, ring});
+    });
+    if (s.phase === "ask" && !s.__fitted){ Stage.fit(true); s.__fitted = true; }
+  } else {
+    Stage.onPick = null;
+    Stage.overlay = x => deck.cards.forEach(c => {
+      if (c.id === card.id) Stage.pin(x, c, {label: "?", tone: answered ? (s.verdict === "bad" ? "accent" : "ok") : "accent", r: 18, ring: true});
+      else if (c.name.trim() && state.showAll) Stage.pin(x, c, {tone: "cool", r: 8, ghost: true});
+    });
+    if (s.__focus !== card.id){ Stage.focus(card.pin.x, card.pin.y); s.__focus = card.id; }
+  }
+  Stage.draw();
+
+  $("#stagebar").innerHTML = `
+    <button class="toggle" data-z="fit" title="Cała tablica">⤢ Całość</button>
+    ${s.mode !== "point" ? `<button class="toggle" data-zoom title="Przybliż punkt">⌖ Punkt</button>` : ""}
+    <button class="toggle" data-all aria-pressed="${!!state.showAll}" title="Pokaż pozostałe punkty">⋯ Inne punkty</button>
+    ${answered ? `<button class="toggle" data-reveal aria-pressed="${state.reveal}" title="Zobacz oryginalny podpis">👁 Oryginał</button>` : ""}`;
+  $("#stagebar").onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.z === "fit") Stage.fit(true);
+    else if ("zoom" in b.dataset) Stage.focus(card.pin.x, card.pin.y);
+    else if ("all" in b.dataset){ state.showAll = !state.showAll; renderQuiz(); }
+    else if ("reveal" in b.dataset){ state.reveal = !state.reveal; renderQuiz(); }
+  };
+  note("");
+
+  /* --- panel --- */
+  const prog = Math.round(s.i / s.ids.length * 100);
+  const head = `<div class="prog"><i style="width:${prog}%"></i></div>
+    <div class="pad" style="padding-bottom:0; display:flex; justify-content:space-between; align-items:center">
+      <span class="eyebrow">${MODES[s.mode].name}</span>
+      <span class="hint num">${s.i + 1} / ${s.ids.length}</span>
+    </div>`;
+
+  let body = "";
+  if (s.mode === "point"){
+    body = `<div class="ask">Wskaż na tablicy:</div><div class="asked">${esc(card.name.split(/[;|]/)[0].trim())}</div>
+      ${answered ? "" : `<p class="hint">Kliknij punkt, który odpowiada tej nazwie.</p>`}`;
+  } else if (s.mode === "choice"){
+    if (!s.choices) s.choices = buildChoices(card);
+    body = `<div class="ask">Punkt <span class="num">${num}</span> — co to jest?</div>
+      <div class="choices">${s.choices.map((c, i) => {
+        let cls = "";
+        if (answered){ if (c.id === card.id) cls = "pick-ok"; else if (c.id === s.pick) cls = "pick-bad"; }
+        return `<button class="choice ${cls}" data-choice="${c.id}" ${answered ? "disabled" : ""}>
+          <span class="num" style="color:var(--muted); font-style:normal; margin-right:7px">${i + 1}</span>${esc(c.name.split(/[;|]/)[0].trim())}</button>`;
+      }).join("")}</div>`;
+  } else {
+    body = `<div class="ask">Punkt <span class="num">${num}</span> — jak się nazywa?</div>
+      ${answered ? "" : `<input type="text" id="ans" class="answer-in" placeholder="wpisz nazwę…" autocomplete="off" autocorrect="off" spellcheck="false" value="${esc(s.given)}">
+      <div class="row"><button class="btn primary" id="checkbtn" style="flex:1">Sprawdź <kbd>↵</kbd></button>
+      <button class="btn" id="dunno">Nie wiem</button></div>`}`;
+  }
+
+  let verdict = "";
+  if (answered){
+    const cls = s.verdict === "ok" ? "v-ok" : s.verdict === "near" ? "v-near" : "v-bad";
+    const title = s.verdict === "ok" ? "Dobrze" : s.verdict === "near" ? "Prawie — sprawdź pisownię" : "Niedokładnie";
+    verdict = `<div class="verdict ${cls}">
+      <h4>${title}</h4>
+      <div class="correct">${esc(card.name.split(/[;|]/)[0].trim())}</div>
+      ${card.name.split(/[;|]/).length > 1 ? `<div class="given">także: ${esc(card.name.split(/[;|]/).slice(1).join(", ").trim())}</div>` : ""}
+      ${card.note ? `<div class="given">${esc(card.note)}</div>` : ""}
+      ${s.given && s.verdict !== "ok" ? `<div class="given">Twoja odpowiedź: „${esc(s.given)}”</div>` : ""}
+    </div>
+    <div class="row">
+      <button class="btn primary" id="nextbtn" style="flex:1">${s.i + 1 < s.ids.length ? "Dalej" : "Podsumowanie"} <kbd>↵</kbd></button>
+      ${s.verdict === "bad" ? `<button class="btn" id="knewit" title="Zalicz mimo wszystko">Umiałem</button>` : ""}
+    </div>`;
+  }
+
+  $("#side").innerHTML = `<div class="quiz">${head}<div class="qbody">${body}${verdict}
+    <div style="flex:1"></div>
+    <button class="btn ghost" id="endbtn" style="align-self:flex-start">Zakończ sesję</button></div></div>`;
+
+  const ans = $("#ans");
+  if (ans){
+    ans.focus();
+    ans.addEventListener("input", () => { s.given = ans.value; });
+    ans.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); check(ans.value); } });
+    $("#checkbtn").addEventListener("click", () => check(ans.value));
+    $("#dunno").addEventListener("click", () => check(""));
+  }
+  $("#nextbtn")?.addEventListener("click", nextQuestion);
+  $("#knewit")?.addEventListener("click", () => {
+    const c = curCard(); c.srs.box = clamp(c.srs.box + 1, 1, 5); c.srs.due = Date.now() + INTERVALS[c.srs.box - 1] * DAY;
+    s.results[s.results.length - 1].verdict = "ok"; s.verdict = "ok"; autosave(false); renderQuiz();
+  });
+  $("#endbtn").addEventListener("click", () => { s.ids = s.ids.slice(0, s.i); renderSummary(); });
+  $$("[data-choice]").forEach(b => b.addEventListener("click", () => answerChoice(b.dataset.choice)));
+}
+
+function record(verdict, given, pick){
+  const s = state.session, card = curCard();
+  s.verdict = verdict; s.given = given ?? ""; s.pick = pick ?? null; s.phase = "feedback";
+  s.results.push({id: card.id, verdict, given: s.given});
+  applySRS(card, verdict);
+  autosave(false);
+  renderQuiz();
+}
+function check(text){ record(judge(text, curCard().name), text.trim()); }
+function answerChoice(id){ const card = curCard(); record(id === card.id ? "ok" : "bad", state.session.choices.find(c => c.id === id)?.name || "", id); }
+function answerPoint(clicked){ const card = curCard(); record(clicked.id === card.id ? "ok" : "bad", clicked.name, clicked.id); }
+function nextQuestion(){
+  const s = state.session;
+  s.i++; s.phase = "ask"; s.given = ""; s.verdict = null; s.pick = null; s.choices = null; s.__fitted = false;
+  state.reveal = false;
+  renderQuiz();
+}
+addEventListener("keydown", e => {
+  const s = state.session;
+  if (state.view !== "quiz" || !s || s.i >= s.ids.length) return;
+  if (e.defaultPrevented || /input|textarea|button/i.test(e.target.tagName)) return;  // pole i przycisk radzą sobie same
+  if (s.phase === "feedback" && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); nextQuestion(); }
+  if (s.phase === "ask" && s.mode === "choice" && /^[1-4]$/.test(e.key)){
+    const b = $$("[data-choice]")[+e.key - 1]; if (b) b.click();
+  }
+});
+
+function renderSummary(){
+  const s = state.session, deck = state.deck;
+  const ok = s.results.filter(r => r.verdict !== "bad").length, n = s.results.length;
+  const pct = n ? Math.round(ok / n * 100) : 0;
+  const misses = s.results.filter(r => r.verdict !== "ok");
+  Stage.overlay = x => deck.cards.forEach(c => {
+    const r = s.results.find(q => q.id === c.id);
+    if (r) Stage.pin(x, c, {label: r.verdict === "bad" ? "✕" : "✓", tone: r.verdict === "bad" ? "accent" : "ok", r: 13});
+  });
+  Stage.fit(true);
+  $("#stagebar").innerHTML = `<button class="toggle" data-reveal aria-pressed="${state.reveal}">👁 Oryginał</button>`;
+  $("#stagebar").onclick = () => { state.reveal = !state.reveal; renderSummary(); };
+
+  $("#side").innerHTML = `<div class="scroll"><div class="summary">
+    <div class="eyebrow">Koniec sesji</div>
+    <div class="score">${pct}<small>%</small></div>
+    <p class="hint" style="margin:0">${ok} z ${n} ${plural(n, "punktu", "punktów", "punktów")} · ${
+      pct >= 90 ? "tablica praktycznie opanowana" : pct >= 60 ? "solidnie, powtórz słabsze punkty" : "jeszcze parę przebiegów i wejdzie"}</p>
+    ${misses.length ? `<hr class="sep" style="width:100%">
+      <div class="eyebrow" style="align-self:flex-start">Do powtórki</div>
+      <div class="misslist">${misses.map(r => {
+        const c = deck.cards.find(x => x.id === r.id);
+        const i = deck.cards.indexOf(c) + 1;
+        return `<div class="missrow"><span class="num" style="color:var(--muted)">${i}</span>
+          <span><span class="lat">${esc(c.name.split(/[;|]/)[0])}</span>
+          ${r.given ? `<span class="alt hint">napisałeś: „${esc(r.given)}”</span>` : `<span class="alt hint">bez odpowiedzi</span>`}</span></div>`;
+      }).join("")}</div>` : ""}
+    <div class="row" style="margin-top:6px; flex-wrap:wrap; justify-content:center">
+      ${misses.length ? `<button class="btn primary" id="againbad">Powtórz błędy (${misses.length})</button>` : ""}
+      <button class="btn" id="againall">Nowa sesja</button>
+      <button class="btn ghost" id="tolib">Biblioteka</button>
+    </div>
+  </div></div>`;
+  $("#againbad")?.addEventListener("click", () => startSession(s.mode, misses.map(r => r.id)));
+  $("#againall").addEventListener("click", () => renderQuizSetup());
+  $("#tolib").addEventListener("click", () => { state.session = null; go("lib"); });
+}
+
+/* =========================================================================
+   Postępy
+   ========================================================================= */
+function renderStats(){
+  const deck = state.deck, named = namedCards(deck);
+  const boxes = [1, 2, 3, 4, 5].map(b => named.filter(c => c.srs.box === b).length);
+  const seen = named.reduce((s, c) => s + c.srs.seen, 0);
+  const ok = named.reduce((s, c) => s + c.srs.ok, 0);
+  const mastered = named.filter(c => c.srs.box >= 4).length;
+  const due = dueCards(deck).length;
+  const weak = named.filter(c => c.srs.seen).sort((a, b) => (a.srs.ok / a.srs.seen) - (b.srs.ok / b.srs.seen)).slice(0, 6);
+  const max = Math.max(1, ...boxes);
+
+  Stage.allowBox = false; Stage.onPick = c => { state.sel = c.id; };
+  Stage.overlay = x => deck.cards.forEach((c, i) => {
+    if (!c.name.trim()) return;
+    Stage.pin(x, c, {label: String(i + 1), tone: c.srs.box >= 4 ? "ok" : c.srs.seen ? "cool" : "muted", r: 13});
+  });
+  Stage.fit(true);
+  note("Zielone punkty masz opanowane");
+
+  $("#side").innerHTML = `<div class="scroll"><div class="pad">
+    <div class="eyebrow" style="margin-bottom:10px">Postępy — ${esc(deck.name)}</div>
+    <div class="statgrid">
+      <div class="stat"><div class="v">${mastered}<span style="font-size:15px; color:var(--muted)">/${named.length}</span></div><div class="k">opanowanych</div></div>
+      <div class="stat"><div class="v">${seen ? Math.round(ok / seen * 100) : 0}%</div><div class="k">skuteczność</div></div>
+      <div class="stat"><div class="v">${due}</div><div class="k">do powtórki</div></div>
+      <div class="stat"><div class="v">${seen}</div><div class="k">odpowiedzi</div></div>
+    </div>
+    <hr class="sep">
+    <div class="eyebrow">Rozkład powtórek</div>
+    <div class="boxrow">${boxes.map(v => `<div style="height:${Math.round(v / max * 100)}%"><span class="num">${v}</span></div>`).join("")}</div>
+    <div class="boxlbl">${["świeże", "1 dzień", "3 dni", "tydzień", "3 tyg."].map(l => `<div>${l}</div>`).join("")}</div>
+    <p class="hint" style="margin-top:10px">Punkt awansuje do dalszego pudełka za każdą dobrą odpowiedź, a po pomyłce wraca na początek.</p>
+    ${weak.length ? `<hr class="sep"><div class="eyebrow" style="margin-bottom:8px">Najsłabsze punkty</div>
+      <div class="misslist">${weak.map(c => {
+        const i = deck.cards.indexOf(c) + 1, r = Math.round(c.srs.ok / c.srs.seen * 100);
+        return `<div class="missrow"><span class="num" style="color:var(--muted)">${i}</span>
+          <span style="flex:1"><span class="lat">${esc(c.name.split(/[;|]/)[0])}</span></span>
+          <span class="num" style="color:${r < 60 ? "var(--accent)" : "var(--muted)"}">${r}%</span></div>`;
+      }).join("")}</div>` : ""}
+    <hr class="sep">
+    <div class="row" style="flex-wrap:wrap">
+      <button class="btn primary" id="s-learn" ${named.length ? "" : "disabled"}>Ucz się</button>
+      <button class="btn" id="s-edit">Popraw tablicę</button>
+      <button class="btn ghost" id="s-reset">Wyzeruj postępy</button>
+    </div>
+  </div></div>`;
+  $("#s-learn").addEventListener("click", () => go("quiz"));
+  $("#s-edit").addEventListener("click", () => go("edit"));
+  $("#s-reset").addEventListener("click", async () => {
+    const yes = await dialog({title: "Wyzerować postępy?", ok: "Wyzeruj", body:
+      `<p class="hint">Nazwy i punkty zostają — kasuję tylko historię powtórek tej tablicy.</p>`});
+    if (!yes) return;
+    deck.cards.forEach(c => c.srs = {box: 1, due: 0, seen: 0, ok: 0, streak: 0, lastMs: 0});
+    await saveDeck(); renderStats(); toast("Postępy wyzerowane");
+  });
+}
+
+/* =========================================================================
+   Automatyczne odczytanie podpisów (OCR) — opcjonalne wsparcie
+   ========================================================================= */
+function loadScript(src){
+  return new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = res; s.onerror = () => rej(new Error("brak połączenia"));
+    document.head.appendChild(s);
+  });
+}
+function ocrLines(data){
+  const out = [];
+  const push = l => { if (l && l.bbox && l.text) out.push({text: l.text, bbox: l.bbox, conf: l.confidence ?? 0}); };
+  if (Array.isArray(data.lines) && data.lines.length) data.lines.forEach(push);
+  else for (const b of data.blocks || []) for (const p of b.paragraphs || []) (p.lines || []).forEach(push);
+  return out;
+}
+async function runOCR(){
+  const deck = state.deck;
+  setBusy(true, "Wczytuję silnik rozpoznawania…");
+  try {
+    if (!window.Tesseract) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js");
+    const limit = ms => new Promise((_, rej) => setTimeout(() => rej(new Error("za długo brak odpowiedzi")), ms));
+    setBusy(true, "Pobieram model języka polskiego (raz, ~15 MB)…");
+    const worker = await Promise.race([Tesseract.createWorker("pol", 1, {
+      logger: m => { if (m.status === "recognizing text") setBusy(true, `Czytam podpisy… ${Math.round(m.progress * 100)}%`); },
+    }), limit(120000)]);
+    const {data} = await Promise.race([worker.recognize(state.img, {}, {blocks: true, text: true}), limit(180000)]);
+    await worker.terminate();
+    const W = state.img.naturalWidth, H = state.img.naturalHeight;
+    const found = ocrLines(data)
+      .map(l => ({...l, text: l.text.replace(/\s+/g, " ").trim()}))
+      .filter(l => l.conf > 55 && l.text.length >= 4 && /[a-ząćęłńóśźż]{3}/i.test(l.text));
+    if (!found.length){ toast("Nie rozpoznałem żadnego podpisu — zaznacz je ręcznie"); return; }
+    for (const l of found){
+      const box = {x: l.bbox.x0 / W, y: l.bbox.y0 / H, w: (l.bbox.x1 - l.bbox.x0) / W, h: (l.bbox.y1 - l.bbox.y0) / H};
+      if (box.w > 0.6 || box.h > 0.2) continue;                    // to raczej tytuł, nie podpis
+      if (deck.cards.some(c => Math.abs(c.box.x - box.x) < 0.01 && Math.abs(c.box.y - box.y) < 0.01)) continue;
+      const card = newCard(box);
+      card.name = l.text;
+      deck.cards.push(card);
+    }
+    autosave(true); renderEditor();
+    toast(`Rozpoznałem ${found.length} ${plural(found.length, "podpis", "podpisy", "podpisów")} — sprawdź je i popraw`);
+  } catch (err){
+    console.error(err);
+    toast("Automatyczne czytanie niedostępne (" + err.message + "). Zaznacz podpisy ręcznie.");
+  } finally { setBusy(false); }
+}
+
+/* =========================================================================
+   Przykładowa tablica — schemat kości udowej rysowany w przeglądarce
+   ========================================================================= */
+async function makeDemoDeck(){
+  setBusy(true, "Rysuję przykładową tablicę…");
+  try {
+    const W = 900, H = 1240;
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const x = c.getContext("2d");
+    x.fillStyle = "#F0EDE3"; x.fillRect(0, 0, W, H);
+    x.strokeStyle = "#CFC9B8"; x.lineWidth = 2; x.strokeRect(24, 24, W - 48, H - 48);
+    x.fillStyle = "#3A362E"; x.font = 'italic 30px "IBM Plex Serif", Georgia, serif';
+    x.fillText("Os femoris — facies posterior", 56, 78);
+    x.font = '14px "IBM Plex Sans", sans-serif'; x.fillStyle = "#8A8474";
+    x.fillText("TABLICA PRZYKŁADOWA", 56, 104);
+
+    const bone = (fn) => { x.save(); x.fillStyle = "#E6DAC0"; x.strokeStyle = "#7A6E58"; x.lineWidth = 3; fn(); x.restore(); };
+    const disc = (cx, cy, r) => bone(() => { x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); x.stroke(); });
+    const bar = (x1, y1, x2, y2, w) => bone(() => {
+      x.lineCap = "round"; x.lineWidth = w; x.strokeStyle = "#E6DAC0";
+      x.beginPath(); x.moveTo(x1, y1); x.lineTo(x2, y2); x.stroke();
+      x.lineWidth = 3; x.strokeStyle = "#7A6E58"; x.stroke();
+    });
+    bar(470, 380, 500, 900, 62);            // trzon
+    bar(390, 300, 470, 380, 46);            // szyjka
+    disc(360, 280, 62);                     // głowa
+    disc(516, 320, 52);                     // krętarz większy
+    disc(452, 402, 27);                     // krętarz mniejszy
+    disc(452, 960, 62);                     // kłykieć przyśrodkowy
+    disc(566, 955, 56);                     // kłykieć boczny
+    bone(() => { x.fillStyle = "#F0EDE3"; x.beginPath(); x.moveTo(492, 990); x.quadraticCurveTo(510, 930, 528, 990); x.lineTo(492, 990); x.fill(); x.stroke(); });
+
+    const labels = [
+      {t: "Caput femoris",         to: [360, 280], at: [120, 214], side: "L"},
+      {t: "Collum femoris",        to: [428, 340], at: [120, 320], side: "L"},
+      {t: "Trochanter major",      to: [516, 320], at: [640, 236], side: "R"},
+      {t: "Trochanter minor",      to: [452, 402], at: [640, 452], side: "R"},
+      {t: "Corpus femoris",        to: [486, 650], at: [640, 640], side: "R"},
+      {t: "Condylus medialis",     to: [452, 960], at: [104, 1042], side: "L"},
+      {t: "Condylus lateralis",    to: [566, 955], at: [640, 1042], side: "R"},
+      {t: "Fossa intercondylaris", to: [510, 970], at: [286, 1148], side: "L"},
+    ];
+    x.font = 'italic 27px "IBM Plex Serif", Georgia, serif';
+    x.textBaseline = "alphabetic";
+    const cards = [];
+    for (const l of labels){
+      const w = x.measureText(l.t).width, [tx, ty] = l.at;
+      x.fillStyle = "#2B2822"; x.fillText(l.t, tx, ty);
+      x.save();
+      x.strokeStyle = "#94907F"; x.lineWidth = 1.4;
+      x.beginPath();
+      const startX = l.side === "L" ? tx + w + 10 : tx - 10;
+      x.moveTo(startX, ty - 8); x.lineTo(l.to[0], l.to[1]); x.stroke();
+      x.beginPath(); x.arc(l.to[0], l.to[1], 3.5, 0, 7); x.fillStyle = "#94907F"; x.fill();
+      x.restore();
+      cards.push({...newCard({x: (tx - 6) / W, y: (ty - 26) / H, w: (w + 12) / W, h: 34 / H}), name: l.t});
+    }
+    const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.92));
+    const deck = {id: uid(), name: "Kość udowa — przykład", created: Date.now(), updated: Date.now(),
+                  w: W, h: H, image: blob, thumb: "", maskStyle: "solid", cards};
+    const url = URL.createObjectURL(blob);
+    state.img = await loadImage(url); URL.revokeObjectURL(url);
+    state.deck = deck; refreshMask(); deck.thumb = makeThumb();
+    await DB.put(deck);
+    await openDeck(deck.id);
+    await go("quiz");
+    toast("Przykładowa tablica gotowa — spróbuj sesji");
+  } catch (err){ console.error(err); toast("Nie udało się zrobić przykładu: " + err.message); }
+  finally { setBusy(false); }
+}
+
+/* ---------- start ---------- */
+Stage.init();
+go("lib");
+</script>
