@@ -959,17 +959,34 @@ document.addEventListener("paste", e => {
   if (files.length) addImages(files);
 });
 
+/* ---------- zapis pliku ---------- */
+let downloadsNs = null;   // w opublikowanej wersji zapis pliku idzie przez gospodarza strony
+const downloadsCap = () => (downloadsNs ??= Promise.resolve(window.claude?.use?.("downloads") ?? null).catch(() => null));
+async function saveFile(filename, data, done = "Zapisane"){
+  const ns = await downloadsCap();
+  if (ns){
+    try { await ns.save({filename, data}); toast(done); return; }
+    catch (err){
+      if (err?.code === "declined" || err?.code === "rate_limited") return;
+      console.warn("zapis przez gospodarza nie wyszedł:", err);
+    }
+  }
+  const blob = data instanceof Blob ? data : new Blob([data], {type: "application/octet-stream"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast(done);
+}
+const fileStem = name => (name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ł/g, "l")
+  .replace(/[^\w\s-]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "tablica");
+
 /* ---------- zapis i wczytywanie talii ---------- */
 async function exportDeck(id){
   const deck = await DB.get(id);
   if (!deck) return;
   const payload = {app: "slepa-tablica", version: 1, deck: {...deck, image: await blobToDataURL(deck.image)}};
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(payload)], {type: "application/json"}));
-  a.download = deck.name.replace(/[^\w\sąćęłńóśźż-]+/gi, "").trim().replace(/\s+/g, "-").toLowerCase() + ".json";
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  toast("Talia zapisana do pliku");
+  await saveFile(fileStem(deck.name) + ".json", JSON.stringify(payload), "Talia zapisana do pliku");
 }
 async function importDeck(file){
   if (!file) return;
@@ -1004,12 +1021,7 @@ async function exportBlindPNG(){
     x.fillText(String(i + 1), px, py + r * 0.04);
   });
   const blob = await new Promise(r2 => c.toBlob(r2, "image/png"));
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "slepa-" + state.deck.name.replace(/\s+/g, "-").toLowerCase() + ".png";
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  toast("Ślepa tablica zapisana jako PNG");
+  await saveFile("slepa-" + fileStem(state.deck.name) + ".png", blob, "Ślepa tablica zapisana jako PNG");
 }
 
 /* =========================================================================
