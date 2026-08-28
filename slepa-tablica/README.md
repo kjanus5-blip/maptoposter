@@ -27,8 +27,10 @@ Serwer jest potrzebny, bo przeglądarki blokują IndexedDB przy otwieraniu plik�
    - kilka poprawnych wersji rozdziel średnikiem: `biceps brachii; mięsień dwugłowy ramienia`
    - część nieobowiązkowa w nawiasie: `(musculus) deltoideus`
    - skróty `m.`, `a.`, `v.`, `n.`, `lig.`, `proc.` są rozwijane automatycznie
-   - przycisk **Rozpoznaj podpisy** próbuje odczytać je automatycznie (OCR, wymaga internetu
-     przy pierwszym użyciu — pobiera ~15 MB modelu języka polskiego). Wyniki zawsze warto sprawdzić.
+   - przycisk **Rozpoznaj podpisy** próbuje odczytać je automatycznie (OCR). Działa tylko przy
+     lokalnym uruchomieniu i wymaga internetu przy pierwszym użyciu — pobiera ~15 MB modelu
+     języka polskiego. W wersji opublikowanej jako artefakt przeglądarka blokuje to pobieranie;
+     wtedy użyj `ocr-deck.mjs` (niżej) albo zaznacz podpisy ręcznie. Odczyt zawsze warto sprawdzić.
 3. **Ucz się** — trzy tryby:
    - *Wpisz nazwę* — pokazuje przybliżony punkt, wpisujesz nazwę,
    - *Wybierz z listy* — cztery odpowiedzi,
@@ -43,6 +45,20 @@ i skróty przechodzą jako poprawne, ale zawsze pokazuję prawidłową pisownię
 - **⤓ przy talii** — zapisuje całą talię (zdjęcie + nazwy + postępy) do pliku `.json`.
 - **Wczytaj talię** — wczytuje taki plik z powrotem, także na innym urządzeniu.
 - **⤓ PNG** w edytorze — zapisuje samą ślepą tablicę z numerami, do wydruku.
+
+## OCR po stronie serwera
+
+`ocr-deck.mjs` czyta podpisy ze zdjęcia i od razu składa gotową talię — bez ograniczeń przeglądarki:
+
+```bash
+npm install tesseract.js
+node ocr-deck.mjs tablica.jpg --name "Kość udowa" > talia.json
+```
+
+Opcje: `--lang pol` (np. `pol+eng` albo `lat`), `--min-conf 50` (próg pewności odczytu).
+Słowa są sklejane w podpisy po odstępach, więc dwie etykiety w tej samej linii trafiają
+do osobnych ramek. Plik wczytuje się w aplikacji przyciskiem **Wczytaj talię**, a nazwy
+poprawia się w zakładce **Opisz** — ramki bywają celniejsze niż odczytany tekst.
 
 ## Gotowa talia z pliku
 

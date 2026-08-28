@@ -576,8 +576,9 @@ function buildMasked(img, deck){
   for (const card of deck.cards){
     const bx = Math.round(card.box.x * W), by = Math.round(card.box.y * H);
     const bw = Math.max(2, Math.round(card.box.w * W)), bh = Math.max(2, Math.round(card.box.h * H));
-    const px = Math.round(clamp(bx - bw * 0.02 - 2, 0, W)), py = Math.round(clamp(by - bh * 0.08 - 2, 0, H));
-    const pw = Math.min(W - px, Math.round(bw * 1.04 + 4)), ph = Math.min(H - py, Math.round(bh * 1.16 + 4));
+    const padX = Math.max(3, bh * 0.35), padY = Math.max(2, bh * 0.16);
+    const px = Math.round(clamp(bx - padX, 0, W)), py = Math.round(clamp(by - padY, 0, H));
+    const pw = Math.min(W - px, Math.round(bw + padX * 2)), ph = Math.min(H - py, Math.round(bh + padY * 2));
     if (pw <= 0 || ph <= 0) continue;
     if (deck.maskStyle === "pixel"){
       const tw = Math.max(2, Math.round(pw / 14)), th = Math.max(2, Math.round(ph / 14));
@@ -1507,11 +1508,29 @@ function loadScript(src){
     document.head.appendChild(s);
   });
 }
+/** Słowa sklejamy w podpisy po odstępach — dwie etykiety na jednej linii
+    (na tablicach norma) muszą trafić do osobnych ramek. */
 function ocrLines(data){
+  const lines = [];
+  if (Array.isArray(data.lines) && data.lines.length) lines.push(...data.lines);
+  else for (const b of data.blocks || []) for (const p of b.paragraphs || []) lines.push(...(p.lines || []));
+  const grow = (a, b) => ({x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1)});
   const out = [];
-  const push = l => { if (l && l.bbox && l.text) out.push({text: l.text, bbox: l.bbox, conf: l.confidence ?? 0}); };
-  if (Array.isArray(data.lines) && data.lines.length) data.lines.forEach(push);
-  else for (const b of data.blocks || []) for (const p of b.paragraphs || []) (p.lines || []).forEach(push);
+  for (const line of lines){
+    const words = (line.words || []).filter(w => w.text && w.text.trim());
+    if (!words.length){
+      if (line.bbox && line.text?.trim()) out.push({text: line.text.trim(), bbox: line.bbox, conf: line.confidence ?? 0});
+      continue;
+    }
+    const h = Math.max(6, line.bbox.y1 - line.bbox.y0);
+    let cur = null;
+    for (const w of words){
+      if (cur && w.bbox.x0 - cur.bbox.x1 < h * 1.6){
+        cur.text += " " + w.text.trim(); cur.bbox = grow(cur.bbox, w.bbox); cur.conf = Math.min(cur.conf, w.confidence ?? 0);
+      } else { if (cur) out.push(cur); cur = {text: w.text.trim(), bbox: {...w.bbox}, conf: w.confidence ?? 0}; }
+    }
+    if (cur) out.push(cur);
+  }
   return out;
 }
 async function runOCR(){
@@ -1528,8 +1547,8 @@ async function runOCR(){
     await worker.terminate();
     const W = state.img.naturalWidth, H = state.img.naturalHeight;
     const found = ocrLines(data)
-      .map(l => ({...l, text: l.text.replace(/\s+/g, " ").trim()}))
-      .filter(l => l.conf > 55 && l.text.length >= 4 && /[a-ząćęłńóśźż]{3}/i.test(l.text));
+      .map(l => ({...l, text: l.text.replace(/\s+/g, " ").replace(/^[^\p{L}(]+|[^\p{L})]+$/gu, "").trim()}))
+      .filter(l => l.conf > 50 && l.text.length >= 4 && /\p{L}{3}/u.test(l.text));
     if (!found.length){ toast("Nie rozpoznałem żadnego podpisu — zaznacz je ręcznie"); return; }
     for (const l of found){
       const box = {x: l.bbox.x0 / W, y: l.bbox.y0 / H, w: (l.bbox.x1 - l.bbox.x0) / W, h: (l.bbox.y1 - l.bbox.y0) / H};
@@ -1543,7 +1562,16 @@ async function runOCR(){
     toast(`Rozpoznałem ${found.length} ${plural(found.length, "podpis", "podpisy", "podpisów")} — sprawdź je i popraw`);
   } catch (err){
     console.error(err);
-    toast("Automatyczne czytanie niedostępne (" + err.message + "). Zaznacz podpisy ręcznie.");
+    setBusy(false);                       // nakładka nie może zostać pod okienkiem z błędem
+    const published = !!window.claude?.use;
+    await dialog({
+      title: "Nie udało się odczytać podpisów", ok: "Zaznaczę ręcznie", cancel: "",
+      body: `<p class="hint">${published
+        ? "Opublikowana wersja aplikacji nie może pobrać modelu rozpoznawania pisma — przeglądarka blokuje takie pobieranie ze względów bezpieczeństwa. Uruchom aplikację lokalnie (<code>python3 -m http.server</code> w katalogu <code>slepa-tablica</code>) albo poproś o gotową talię — OCR da się zrobić po stronie serwera."
+        : "Silnik rozpoznawania pobiera się z internetu przy pierwszym użyciu (~15 MB). Sprawdź połączenie i wtyczki blokujące skrypty."}</p>
+      <p class="hint" style="margin-top:8px">Szczegóły: <code>${esc(err.message)}</code></p>
+      <p class="hint" style="margin-top:8px">Zaznaczanie ręczne działa zawsze: przeciągnij prostokąt po podpisie, wpisz nazwę, <kbd>Enter</kbd>.</p>`,
+    });
   } finally { setBusy(false); }
 }
 
