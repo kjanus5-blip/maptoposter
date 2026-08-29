@@ -4,8 +4,9 @@ Trener tablic anatomicznych. Wgrywasz zdjęcie tablicy z podpisami, zaznaczasz n
 aplikacja zakrywa je i stawia w ich miejsce numerowane punkty, a potem odpytuje Cię
 z każdego z nich i pilnuje powtórek.
 
-Cała aplikacja to jeden plik `index.html`. Nie ma serwera, konta ani wysyłania czegokolwiek
-na zewnątrz: zdjęcia i postępy siedzą w IndexedDB Twojej przeglądarki.
+Cała aplikacja to `index.html` plus katalog `vendor/` z silnikiem rozpoznawania pisma.
+Nie ma serwera, konta ani wysyłania czegokolwiek na zewnątrz: zdjęcia i postępy siedzą
+w IndexedDB przeglądarki, a OCR liczy się na miejscu.
 
 ## Uruchomienie
 
@@ -27,10 +28,10 @@ Serwer jest potrzebny, bo przeglądarki blokują IndexedDB przy otwieraniu plik�
    - kilka poprawnych wersji rozdziel średnikiem: `biceps brachii; mięsień dwugłowy ramienia`
    - część nieobowiązkowa w nawiasie: `(musculus) deltoideus`
    - skróty `m.`, `a.`, `v.`, `n.`, `lig.`, `proc.` są rozwijane automatycznie
-   - przycisk **Rozpoznaj podpisy** próbuje odczytać je automatycznie (OCR). Działa tylko przy
-     lokalnym uruchomieniu i wymaga internetu przy pierwszym użyciu — pobiera ~15 MB modelu
-     języka polskiego. W wersji opublikowanej jako artefakt przeglądarka blokuje to pobieranie;
-     wtedy użyj `ocr-deck.mjs` (niżej) albo zaznacz podpisy ręcznie. Odczyt zawsze warto sprawdzić.
+   - przycisk **Rozpoznaj podpisy** odczytuje je automatycznie (OCR). Silnik i model polskiego
+     leżą w `vendor/`, więc działa bez internetu — pod warunkiem, że `vendor/` jest obok
+     `index.html`. Odczyt zawsze warto sprawdzić: ramki wychodzą celne, w tekście trafiają się
+     przekłamania (linie odniesienia przecinają litery).
 3. **Ucz się** — trzy tryby:
    - *Wpisz nazwę* — pokazuje przybliżony punkt, wpisujesz nazwę,
    - *Wybierz z listy* — cztery odpowiedzi,
@@ -45,6 +46,22 @@ i skróty przechodzą jako poprawne, ale zawsze pokazuję prawidłową pisownię
 - **⤓ przy talii** — zapisuje całą talię (zdjęcie + nazwy + postępy) do pliku `.json`.
 - **Wczytaj talię** — wczytuje taki plik z powrotem, także na innym urządzeniu.
 - **⤓ PNG** w edytorze — zapisuje samą ślepą tablicę z numerami, do wydruku.
+
+## Jak to komuś udostępnić
+
+Student nie powinien uruchamiać serwera z terminala. Dwie drogi bez instalowania czegokolwiek
+po jego stronie:
+
+- **GitHub Pages** — w repozytorium jest gotowy przepływ `.github/workflows/slepa-tablica-pages.yml`.
+  Wejdź w *Settings → Pages* i ustaw *Source: GitHub Actions*; po najbliższym wypchnięciu zmian
+  dostaniesz adres, który wystarczy podać dalej. Działa też OCR, bo silnik jedzie razem z aplikacją.
+  (Dla repozytorium prywatnego Pages wymaga płatnego planu — wtedy prościej wystawić aplikację
+  z osobnego, publicznego repozytorium.)
+- **Dowolny hosting plików statycznych** — wrzuć cały katalog `slepa-tablica` (razem z `vendor/`)
+  np. na netlify.com/drop. Dostajesz adres od ręki, bez konta i bez budowania.
+
+Każdy uczący się ma własną bazę: talie leżą w jego przeglądarce i nigdzie nie są wysyłane.
+Gotową talią dzielisz się plikiem `.json` (przycisk ⤓), a druga osoba wczytuje go u siebie.
 
 ## OCR po stronie serwera
 

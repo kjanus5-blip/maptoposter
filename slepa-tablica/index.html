@@ -460,6 +460,7 @@ const state = {
   reveal: false,        // pokaż oryginał zamiast zakrytej wersji
   tool: "box",          // box | pan
   session: null,
+  imgURL: null,         // adres blob otwartego zdjęcia; zwalniany dopiero przy następnej talii
 };
 
 function newCard(box){
@@ -902,7 +903,9 @@ async function openDeck(id){
     const deck = await DB.get(id);
     if (!deck) { toast("Nie znalazłem tej talii"); return; }
     const url = URL.createObjectURL(deck.image);
-    try { state.img = await loadImage(url); } finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
+    state.img = await loadImage(url);
+    if (state.imgURL) URL.revokeObjectURL(state.imgURL);
+    state.imgURL = url;
     state.deck = deck; state.sel = null; state.session = null;
     refreshMask();
     Stage.needsFit = true;
@@ -923,7 +926,9 @@ async function addImages(files){
         created: Date.now(), updated: Date.now(), w, h, image: blob, thumb: "", maskStyle: "solid", cards: [],
       };
       const url = URL.createObjectURL(blob);
-      const im = await loadImage(url); URL.revokeObjectURL(url);
+      const im = await loadImage(url);
+      if (state.imgURL) URL.revokeObjectURL(state.imgURL);
+      state.imgURL = url;
       state.img = im; state.deck = deck; refreshMask();
       deck.thumb = makeThumb();
       await DB.put(deck);
@@ -1533,17 +1538,32 @@ function ocrLines(data){
   }
   return out;
 }
+const limit = ms => new Promise((_, rej) => setTimeout(() => rej(new Error("za długo brak odpowiedzi")), ms));
+/** Silnik leży obok aplikacji (katalog vendor/). Gdy go nie ma — próba z sieci. */
+async function ocrWorker(logger){
+  const local = {workerPath: "vendor/worker.min.js", corePath: "vendor/", langPath: "vendor/tessdata", gzip: true, logger};
+  try {
+    const w = await Promise.race([Tesseract.createWorker("pol", 1, local), limit(60000)]);
+    return {worker: w, local: true};
+  } catch (err){
+    console.warn("silnik obok aplikacji niedostępny, próbuję z sieci:", err);
+    return {worker: await Promise.race([Tesseract.createWorker("pol", 1, {logger}), limit(120000)]), local: false};
+  }
+}
 async function runOCR(){
   const deck = state.deck;
-  setBusy(true, "Wczytuję silnik rozpoznawania…");
+  setBusy(true, "Uruchamiam rozpoznawanie pisma…");
   try {
-    if (!window.Tesseract) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js");
-    const limit = ms => new Promise((_, rej) => setTimeout(() => rej(new Error("za długo brak odpowiedzi")), ms));
-    setBusy(true, "Pobieram model języka polskiego (raz, ~15 MB)…");
-    const worker = await Promise.race([Tesseract.createWorker("pol", 1, {
-      logger: m => { if (m.status === "recognizing text") setBusy(true, `Czytam podpisy… ${Math.round(m.progress * 100)}%`); },
-    }), limit(120000)]);
-    const {data} = await Promise.race([worker.recognize(state.img, {}, {blocks: true, text: true}), limit(180000)]);
+    if (!window.Tesseract){
+      try { await loadScript("vendor/tesseract.min.js"); }
+      catch { await loadScript("https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js"); }
+    }
+    const {worker} = await ocrWorker(m => {
+      if (m.status === "recognizing text") setBusy(true, `Czytam podpisy… ${Math.round(m.progress * 100)}%`);
+    });
+    setBusy(true, "Czytam podpisy…");
+    const source = state.deck.image instanceof Blob ? state.deck.image : state.img;
+    const {data} = await Promise.race([worker.recognize(source, {}, {blocks: true, text: true}), limit(180000)]);
     await worker.terminate();
     const W = state.img.naturalWidth, H = state.img.naturalHeight;
     const found = ocrLines(data)
@@ -1567,8 +1587,8 @@ async function runOCR(){
     await dialog({
       title: "Nie udało się odczytać podpisów", ok: "Zaznaczę ręcznie", cancel: "",
       body: `<p class="hint">${published
-        ? "Opublikowana wersja aplikacji nie może pobrać modelu rozpoznawania pisma — przeglądarka blokuje takie pobieranie ze względów bezpieczeństwa. Uruchom aplikację lokalnie (<code>python3 -m http.server</code> w katalogu <code>slepa-tablica</code>) albo poproś o gotową talię — OCR da się zrobić po stronie serwera."
-        : "Silnik rozpoznawania pobiera się z internetu przy pierwszym użyciu (~15 MB). Sprawdź połączenie i wtyczki blokujące skrypty."}</p>
+        ? "Opublikowana wersja aplikacji nie może uruchomić rozpoznawania pisma — przeglądarka blokuje wczytanie silnika ze względów bezpieczeństwa. Uruchom aplikację z katalogu <code>slepa-tablica</code> (razem z podkatalogiem <code>vendor</code>) albo wystaw ją na GitHub Pages — tam OCR działa."
+        : "Nie znalazłem silnika w katalogu <code>vendor</code> obok aplikacji ani nie udało się pobrać go z sieci. Sprawdź, czy katalog <code>vendor</code> leży obok <code>index.html</code>."}</p>
       <p class="hint" style="margin-top:8px">Szczegóły: <code>${esc(err.message)}</code></p>
       <p class="hint" style="margin-top:8px">Zaznaczanie ręczne działa zawsze: przeciągnij prostokąt po podpisie, wpisz nazwę, <kbd>Enter</kbd>.</p>`,
     });
@@ -1636,7 +1656,9 @@ async function makeDemoDeck(){
     const deck = {id: uid(), name: "Kość udowa — przykład", created: Date.now(), updated: Date.now(),
                   w: W, h: H, image: blob, thumb: "", maskStyle: "solid", cards};
     const url = URL.createObjectURL(blob);
-    state.img = await loadImage(url); URL.revokeObjectURL(url);
+    state.img = await loadImage(url);
+    if (state.imgURL) URL.revokeObjectURL(state.imgURL);
+    state.imgURL = url;
     state.deck = deck; refreshMask(); deck.thumb = makeThumb();
     await DB.put(deck);
     await openDeck(deck.id);
