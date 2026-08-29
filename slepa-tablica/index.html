@@ -1,5 +1,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ślepa Tablica">
+<meta name="theme-color" content="#F7F8F4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171F23" media="(prefers-color-scheme: dark)">
 <title>Ślepa Tablica</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -281,6 +289,7 @@ hr.sep{border:0; border-top:1px solid var(--line); margin:14px 0}
     </div>
     <div class="spacer"></div>
     <div class="deckchip" id="deckchip" hidden><span class="nm"></span><span class="dot"></span><span class="cnt num"></span></div>
+    <button class="btn small" id="installbtn" hidden>Zainstaluj</button>
     <button class="iconbtn" id="themebtn" title="Jasny / ciemny motyw" aria-label="Zmień motyw">◐</button>
   </header>
 
@@ -300,6 +309,9 @@ hr.sep{border:0; border-top:1px solid var(--line); margin:14px 0}
           <button class="btn" id="importbtn">Wczytaj talię (.json)</button>
           <button class="btn ghost" id="demobtn">Wypróbuj na przykładzie</button>
         </div>
+        <p class="hint" id="installhint" style="margin:14px 0 0">Chcesz mieć to pod ręką jak zwykły program?
+        W Safari: <b>Plik → Dodaj do Docka</b>. W Chrome: ikona instalacji w pasku adresu. Otwiera się wtedy
+        we własnym oknie i działa bez internetu.</p>
         <input type="file" id="fileinput" accept="image/*" multiple hidden>
         <input type="file" id="jsoninput" accept="application/json,.json" hidden>
       </div>
@@ -1570,16 +1582,26 @@ async function runOCR(){
       .map(l => ({...l, text: l.text.replace(/\s+/g, " ").replace(/^[^\p{L}(]+|[^\p{L})]+$/gu, "").trim()}))
       .filter(l => l.conf > 50 && l.text.length >= 4 && /\p{L}{3}/u.test(l.text));
     if (!found.length){ toast("Nie rozpoznałem żadnego podpisu — zaznacz je ręcznie"); return; }
+    /* punkt już zaznaczony nie może dostać drugiej, prawie pokrywającej się ramki */
+    const overlap = (a, b) => {
+      const ix = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
+      const iy = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+      return ix * iy > 0.35 * Math.min(a.w * a.h, b.w * b.h);
+    };
+    let added = 0;
     for (const l of found){
       const box = {x: l.bbox.x0 / W, y: l.bbox.y0 / H, w: (l.bbox.x1 - l.bbox.x0) / W, h: (l.bbox.y1 - l.bbox.y0) / H};
       if (box.w > 0.6 || box.h > 0.2) continue;                    // to raczej tytuł, nie podpis
-      if (deck.cards.some(c => Math.abs(c.box.x - box.x) < 0.01 && Math.abs(c.box.y - box.y) < 0.01)) continue;
+      if (deck.cards.some(c => overlap(c.box, box))) continue;
       const card = newCard(box);
       card.name = l.text;
       deck.cards.push(card);
+      added++;
     }
     autosave(true); renderEditor();
-    toast(`Rozpoznałem ${found.length} ${plural(found.length, "podpis", "podpisy", "podpisów")} — sprawdź je i popraw`);
+    toast(added
+      ? `Rozpoznałem ${added} ${plural(added, "podpis", "podpisy", "podpisów")} — sprawdź je i popraw`
+      : "Nie znalazłem nowych podpisów poza już zaznaczonymi");
   } catch (err){
     console.error(err);
     setBusy(false);                       // nakładka nie może zostać pod okienkiem z błędem
@@ -1667,6 +1689,29 @@ async function makeDemoDeck(){
   } catch (err){ console.error(err); toast("Nie udało się zrobić przykładu: " + err.message); }
   finally { setBusy(false); }
 }
+
+/* ---------- instalacja i tryb bez sieci ---------- */
+(function installable(){
+  const framed = window.top !== window.self;                       // w osadzonym podglądzie to nie ma sensu
+  const secure = location.protocol === "https:" || ["localhost", "127.0.0.1"].includes(location.hostname);
+  if ("serviceWorker" in navigator && secure && !framed){
+    addEventListener("load", () => navigator.serviceWorker.register("sw.js")
+      .catch(err => console.warn("praca bez sieci niedostępna:", err)));
+  }
+  let evt = null;
+  const btn = $("#installbtn");
+  addEventListener("beforeinstallprompt", e => { e.preventDefault(); evt = e; btn.hidden = false; });
+  btn.addEventListener("click", async () => {
+    if (!evt) return;
+    btn.hidden = true;
+    evt.prompt();
+    const {outcome} = await evt.userChoice;
+    evt = null;
+    if (outcome === "accepted") toast("Gotowe — znajdziesz Ślepą Tablicę wśród programów");
+  });
+  addEventListener("appinstalled", () => { btn.hidden = true; toast("Zainstalowane"); });
+  if (matchMedia("(display-mode: standalone)").matches) $("#installhint").hidden = true;
+})();
 
 /* ---------- start ---------- */
 Stage.init();

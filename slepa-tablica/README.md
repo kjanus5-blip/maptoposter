@@ -47,6 +47,23 @@ i skróty przechodzą jako poprawne, ale zawsze pokazuję prawidłową pisownię
 - **Wczytaj talię** — wczytuje taki plik z powrotem, także na innym urządzeniu.
 - **⤓ PNG** w edytorze — zapisuje samą ślepą tablicę z numerami, do wydruku.
 
+## Jak z tego zrobić „program”
+
+Aplikacja jest instalowalna — po otwarciu z adresu (Pages, netlify, cokolwiek po https)
+możesz ją wstawić między swoje programy:
+
+- **Safari na macOS**: *Plik → Dodaj do Docka*. Dostajesz ikonę w Docku i własne okno bez paska adresu.
+- **Chrome / Edge**: ikona instalacji w pasku adresu albo przycisk **Zainstaluj** w nagłówku aplikacji.
+- **iPhone / iPad**: *Udostępnij → Do ekranu początkowego*.
+
+Po pierwszym otwarciu wszystko (aplikacja, silnik OCR, model języka) siedzi w pamięci podręcznej
+przeglądarki, więc **działa bez internetu** — w bibliotece, w pociągu, gdziekolwiek.
+
+Jeśli wolisz trzymać aplikację jako katalog na dysku, a nie na hostingu, jest
+**`Uruchom Ślepą Tablicę.command`** — dwuklik uruchamia lokalny serwer i otwiera przeglądarkę,
+bez wpisywania czegokolwiek w terminalu. Przy pierwszym uruchomieniu macOS może zapytać
+o zgodę (plik pobrany z internetu): kliknij prawym przyciskiem → *Otwórz* → *Otwórz*.
+
 ## Jak to komuś udostępnić
 
 Student nie powinien uruchamiać serwera z terminala. Dwie drogi bez instalowania czegokolwiek
